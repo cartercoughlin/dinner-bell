@@ -76,19 +76,37 @@ Application entry point:
 - Imports global styles from `index.css`
 
 ### `src/App.tsx`
-Main application component:
-- Wraps the entire app in `RecipeProvider` for global recipe state
-- Renders the header with app title and bell emoji
-- Displays `RecipeList` component in the main content area
-- Acts as the root layout component
+Main application component and routing configuration:
+- Wraps the entire app in `BrowserRouter` for client-side routing
+- Provides `RecipeProvider` for global recipe state management
+- Renders the header with app title and tagline
+- Defines all application routes using React Router v6:
+  - `/` - Recipe list page (home)
+  - `/recipe/new` - Create new recipe form
+  - `/recipe/:id` - Recipe detail view
+  - `/recipe/:id/edit` - Edit existing recipe
+- Acts as the root layout component with header and main content area
 
 ### `src/index.css`
-Global CSS styles:
+Global CSS styles and theme:
 - CSS custom properties for light/dark mode color schemes
 - Typography settings (Inter font, line height, font smoothing)
 - CSS reset (margin, padding, box-sizing)
 - Root container styling with max-width and responsive padding
-- Media query for light mode color scheme preference
+- App layout styles (header, main content)
+- Header styling with centered text and bottom border
+- Recipe grid layout (responsive, auto-fill columns)
+- Recipe card styles:
+  - Card container with border, padding, rounded corners
+  - Hover effects (transform, shadow, border color)
+  - Typography for headings and metadata
+- Tag styling (badges with background colors)
+- Empty state styling
+- Button interaction styles (hover, active)
+- Light mode overrides with `@media (prefers-color-scheme: light)`
+- Mobile responsive styles with `@media (max-width: 768px)`
+  - Single column grid on mobile
+  - Adjusted padding and font sizes
 
 ### `src/vite-env.d.ts`
 TypeScript declaration file for Vite-specific types:
@@ -112,25 +130,113 @@ Core TypeScript interfaces defining the data models:
 ### `src/contexts/RecipeContext.tsx`
 Global state management for recipes using React Context API:
 
-- **`RecipeContext`**: React context providing recipe CRUD operations
+- **`RecipeContextType`**: TypeScript interface defining context shape:
+  - `recipes`: Array of all recipes
+  - `addRecipe(recipe: RecipeFormData) => Recipe`: Add new recipe, returns created recipe
+  - `updateRecipe(recipe: Recipe) => void`: Update existing recipe
+  - `deleteRecipe(id: string) => void`: Delete recipe by ID
+  - `getRecipe(id: string) => Recipe | undefined`: Fetch single recipe by ID
 - **`RecipeProvider`**: Context provider component that:
   - Manages recipe state with `useState`
-  - Loads initial recipes from LocalStorage
-  - Syncs recipe changes to LocalStorage with `useEffect`
-  - Provides methods: `addRecipe`, `updateRecipe`, `deleteRecipe`, `getRecipe`
-- **`useRecipes`**: Custom hook for accessing recipe context with error handling
+  - Loads initial recipes from LocalStorage on mount
+  - Syncs recipe changes to LocalStorage with `useEffect` (auto-save)
+  - Implements all CRUD operations
+  - Generates unique IDs with `crypto.randomUUID()`
+  - Adds `dateAdded` timestamp to new recipes
+- **`useRecipes`**: Custom hook for accessing recipe context
+  - Throws error if used outside of `RecipeProvider`
+  - Provides type-safe access to context
 - **Storage**: Uses `localStorage` with key `'dinner-bell-recipes'`
-- **ID Generation**: Uses `crypto.randomUUID()` for unique recipe IDs
+- **Data Persistence**: Automatic sync on every recipe change
+
+## Page Components (`src/pages/`)
+
+### `src/pages/RecipeListPage.tsx`
+Home page displaying all recipes:
+- Uses `useNavigate` hook for routing
+- Displays page title "My Recipes"
+- Shows "Add Recipe" button that navigates to `/recipe/new`
+- Renders `RecipeList` component to display all recipes
+
+### `src/pages/RecipeFormPage.tsx`
+Page for creating and editing recipes:
+- Supports both create and edit modes based on URL params
+- Uses `useParams` to get recipe ID for edit mode
+- Loads existing recipe data in edit mode using `getRecipe`
+- Handles form submission and navigation
+- Calls `addRecipe` for new recipes, `updateRecipe` for edits
+- Navigates to recipe detail page after successful save
+- Renders `RecipeForm` component with appropriate props
+
+### `src/pages/RecipeDetailPage.tsx`
+Page for displaying full recipe details:
+- Uses `useParams` to get recipe ID from URL
+- Fetches recipe data using `getRecipe` hook
+- Shows "Recipe not found" message if recipe doesn't exist
+- Manages delete confirmation dialog state
+- Handles edit, delete, and back navigation
+- Renders `RecipeDetail` and `ConfirmDialog` components
 
 ## Components (`src/components/`)
 
 ### `src/components/RecipeList.tsx`
 Component for displaying all recipes:
 - Consumes recipe data from `useRecipes` hook
+- Uses `useNavigate` for routing to recipe detail pages
 - Shows empty state when no recipes exist
-- Renders recipe cards in a grid layout
+- Renders recipe cards in a grid layout (responsive)
 - Displays recipe title, ingredient count, serving count, and tags
+- Recipe cards are clickable and navigate to detail view
 - Maps over recipes array to generate individual recipe cards
+
+### `src/components/RecipeForm.tsx`
+Comprehensive form for creating and editing recipes:
+- **Props**: `initialData` (optional), `onSubmit`, `onCancel`
+- **Features**:
+  - Title input with required validation
+  - Servings number input
+  - Prep time and cook time inputs (in minutes)
+  - Dynamic ingredient list (add/remove rows)
+    - Each ingredient has name, amount, and unit fields
+    - Minimum of 1 ingredient required
+  - Directions textarea (parsed into array, one step per line)
+  - Tags input (comma-separated, parsed into array)
+  - Tools/equipment input (comma-separated, parsed into array)
+  - Source URL input
+  - Image URL input
+- **Validation**: Title, ingredients, and directions are required
+- **State Management**: Local state for all form fields
+- **Data Processing**: Converts text inputs to proper data types (arrays, numbers)
+- Displays inline error messages for validation failures
+
+### `src/components/RecipeDetail.tsx`
+Component for displaying full recipe information:
+- **Props**: `recipe`, `onEdit`, `onDelete`, `onBack`
+- **Features**:
+  - Back button to return to recipe list
+  - Recipe image display (if imageUrl provided)
+  - Recipe title and action buttons (Edit, Delete)
+  - Metadata display: servings, prep time, cook time
+  - Tags displayed as colored badges
+  - Equipment/tools displayed as badges
+  - Ingredient list with amounts and units
+  - Directions displayed as numbered list
+  - Source URL as clickable link
+  - Last made date (if available)
+  - Date added timestamp
+- Responsive design with inline styles
+
+### `src/components/common/ConfirmDialog.tsx`
+Reusable confirmation dialog component:
+- **Props**: `open`, `title`, `message`, `onConfirm`, `onCancel`
+- **Features**:
+  - Modal overlay with backdrop
+  - Keyboard support (Enter to confirm, Escape to cancel)
+  - Click outside to close
+  - Confirm and Cancel buttons
+  - Focus trap for accessibility
+- Used for delete confirmation
+- Prevents accidental deletions
 
 ## HTML Template
 
@@ -162,11 +268,27 @@ Local settings for Claude Code CLI tool. Contains project-specific configuration
 
 ## Summary
 
-The Dinner Bell project follows a clean, modular React architecture:
+The Dinner Bell project follows a clean, modular React architecture with complete Phase 1 implementation:
 
-1. **Entry Flow**: `index.html` → `main.tsx` → `App.tsx`
-2. **State**: Centralized in `RecipeContext.tsx` with LocalStorage persistence
-3. **Types**: Strongly typed with TypeScript interfaces in `types/`
-4. **Components**: Reusable UI components in `components/`
-5. **Configuration**: Vite for bundling, TypeScript for type safety, Vercel for deployment
-6. **Planning**: Comprehensive roadmap in `PLAN.md` guiding development from MVP to advanced features
+1. **Entry Flow**: `index.html` → `main.tsx` → `App.tsx` → Routes → Pages
+2. **Routing**: React Router v6 with 4 routes (list, new, detail, edit)
+3. **State Management**: Centralized in `RecipeContext.tsx` with LocalStorage persistence
+4. **Types**: Strongly typed with TypeScript interfaces in `types/`
+5. **Pages**: Route-level components in `pages/` (RecipeListPage, RecipeFormPage, RecipeDetailPage)
+6. **Components**:
+   - Feature components in `components/` (RecipeList, RecipeForm, RecipeDetail)
+   - Shared components in `components/common/` (ConfirmDialog)
+7. **Styling**: Global CSS in `index.css` with responsive design and dark/light mode support
+8. **Configuration**: Vite for bundling, TypeScript for type safety, Vercel for deployment
+9. **Planning**: Comprehensive roadmap in `PLAN.md` guiding development from MVP to advanced features
+
+### Current Capabilities (Phase 1 Complete):
+- ✅ Create recipes with full details (ingredients, directions, times, tags, tools)
+- ✅ View all recipes in responsive grid
+- ✅ View individual recipe details
+- ✅ Edit existing recipes
+- ✅ Delete recipes with confirmation
+- ✅ LocalStorage persistence (data survives page refreshes)
+- ✅ Form validation
+- ✅ Responsive design (mobile-first)
+- ✅ Dark/light mode support

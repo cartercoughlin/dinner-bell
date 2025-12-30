@@ -1,7 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { useRecipes } from '../contexts/RecipeContext';
 
 export function RecipeList() {
   const { recipes } = useRecipes();
+  const navigate = useNavigate();
 
   if (recipes.length === 0) {
     return (
@@ -14,10 +16,14 @@ export function RecipeList() {
 
   return (
     <div className="recipe-list">
-      <h2>My Recipes ({recipes.length})</h2>
       <div className="recipe-grid">
         {recipes.map((recipe) => (
-          <div key={recipe.id} className="recipe-card">
+          <div
+            key={recipe.id}
+            className="recipe-card"
+            onClick={() => navigate(`/recipe/${recipe.id}`)}
+            style={{ cursor: 'pointer' }}
+          >
             <h3>{recipe.title}</h3>
             <p>{recipe.ingredients.length} ingredients</p>
             <p>{recipe.servings} servings</p>

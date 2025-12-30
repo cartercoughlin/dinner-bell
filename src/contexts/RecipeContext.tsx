@@ -3,8 +3,8 @@ import { Recipe, RecipeFormData } from '../types/recipe';
 
 interface RecipeContextType {
   recipes: Recipe[];
-  addRecipe: (recipe: RecipeFormData) => void;
-  updateRecipe: (id: string, recipe: RecipeFormData) => void;
+  addRecipe: (recipe: RecipeFormData) => Recipe;
+  updateRecipe: (recipe: Recipe) => void;
   deleteRecipe: (id: string) => void;
   getRecipe: (id: string) => Recipe | undefined;
 }
@@ -23,21 +23,20 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
   }, [recipes]);
 
-  const addRecipe = (recipeData: RecipeFormData) => {
+  const addRecipe = (recipeData: RecipeFormData): Recipe => {
     const newRecipe: Recipe = {
       ...recipeData,
       id: crypto.randomUUID(),
       dateAdded: new Date().toISOString(),
     };
     setRecipes((prev) => [...prev, newRecipe]);
+    return newRecipe;
   };
 
-  const updateRecipe = (id: string, recipeData: RecipeFormData) => {
+  const updateRecipe = (recipe: Recipe) => {
     setRecipes((prev) =>
-      prev.map((recipe) =>
-        recipe.id === id
-          ? { ...recipe, ...recipeData }
-          : recipe
+      prev.map((r) =>
+        r.id === recipe.id ? recipe : r
       )
     );
   };

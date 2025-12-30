@@ -1,21 +1,32 @@
 # 🔔 Dinner Bell
 
-A modern recipe management app built with React and TypeScript.
+A modern recipe management app built with React and TypeScript. Organize your recipes, plan meals, and generate grocery lists all in one place.
+
+## Current Status
+
+**Phase 1 of 9**: Core Recipe Management (In Progress)
+- Foundation complete with React, TypeScript, and LocalStorage
+- Building manual recipe entry, detail view, and edit/delete functionality
+- See [PLAN.md](./PLAN.md) for complete roadmap
 
 ## Features
 
 ### ✅ Implemented
 
-- **Recipe Storage**: LocalStorage-based recipe management with full CRUD operations
-- **Data Models**: TypeScript interfaces for recipes, ingredients, and meal planning
-- **React Context**: Centralized state management for recipes
-- **Recipe List**: View all saved recipes with basic information
+- **Project Foundation**: React 18 + TypeScript + Vite setup with ESLint
+- **Data Models**: Comprehensive TypeScript interfaces for recipes, ingredients, and metadata
+- **Recipe Storage**: LocalStorage-based persistence with full CRUD operations
+- **React Context**: Centralized state management with `RecipeProvider` and `useRecipes` hook
+- **Recipe List**: Display all saved recipes in a grid with basic information
+- **Development Plan**: Comprehensive 9-phase roadmap with architecture decisions
 
-### 🚧 In Progress
+### 🚧 In Progress (Phase 1)
 
-- Recipe form for manual entry
-- Recipe detail view
-- Edit and delete functionality
+- React Router v6 integration for multi-page navigation
+- Recipe form for manual entry (create/edit modes)
+- Recipe detail view with full ingredient/direction display
+- Edit and delete functionality with confirmation
+- Basic styling with CSS Modules and responsive layout
 
 ### 📋 Planned Features
 
@@ -42,13 +53,21 @@ A modern recipe management app built with React and TypeScript.
 
 ## Tech Stack
 
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
-- **React Router** - Navigation (planned)
-- **LocalStorage** - Data persistence (MVP)
+### Current (Phase 1)
+- **React 18** - UI framework with hooks and Context API
+- **TypeScript** - Strict type safety and better developer experience
+- **Vite** - Fast dev server and optimized production builds
+- **LocalStorage** - Client-side data persistence (MVP)
+- **CSS Modules** - Component-scoped styling (planned)
 
-See [PLAN.md](./PLAN.md) for detailed architecture decisions and development roadmap.
+### Planned (Future Phases)
+- **React Router v6** - Client-side routing (Phase 1)
+- **Backend**: Firebase, Supabase, or custom Node.js/Express (Phase 8)
+- **Database**: PostgreSQL or Firebase Firestore (Phase 8)
+- **Recipe Parser**: OpenAI API or custom scraper (Phase 2)
+- **Vision Model**: For refrigerator tracking (Phase 9)
+
+See [PLAN.md](./PLAN.md) for detailed architecture decisions, design patterns, and complete development roadmap.
 
 ## Getting Started
 
@@ -80,21 +99,38 @@ The app will be available at `http://localhost:5173`
 ```
 dinner-bell/
 ├── src/
-│   ├── components/       # React components
+│   ├── components/          # React components
+│   │   ├── recipe/         # Recipe-specific components (planned)
+│   │   ├── common/         # Shared UI components (planned)
+│   │   ├── layout/         # Layout components (planned)
 │   │   └── RecipeList.tsx
-│   ├── contexts/         # React Context providers
+│   ├── pages/              # Page-level components (planned)
+│   ├── contexts/           # React Context providers
 │   │   └── RecipeContext.tsx
-│   ├── types/            # TypeScript type definitions
+│   ├── hooks/              # Custom hooks (planned)
+│   ├── types/              # TypeScript type definitions
 │   │   └── recipe.ts
-│   ├── App.tsx           # Main app component
-│   ├── main.tsx          # Entry point
-│   └── index.css         # Global styles
-├── PLAN.md               # Development roadmap
-├── DESCRIPTION.md        # Detailed explanation of every file
+│   ├── utils/              # Helper functions (planned)
+│   ├── constants/          # App constants (planned)
+│   ├── styles/             # CSS Modules (planned)
+│   ├── App.tsx             # Main app component
+│   ├── main.tsx            # Entry point
+│   └── index.css           # Global styles
+├── dist/                   # Production build output
+├── PLAN.md                 # Development roadmap & architecture
+├── DESCRIPTION.md          # Detailed explanation of every file
 └── README.md
 ```
 
-For a detailed explanation of every file in the project, see [DESCRIPTION.md](./DESCRIPTION.md).
+**Key Documentation**:
+- [DESCRIPTION.md](./DESCRIPTION.md) - Detailed explanation of every file
+- [PLAN.md](./PLAN.md) - Complete development roadmap with:
+  - 9-phase development plan
+  - Architecture decisions & design patterns
+  - Component architecture diagrams
+  - State management strategy
+  - Error handling & security considerations
+  - Future backend API design
 
 ## Contributing
 
