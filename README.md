@@ -90,8 +90,11 @@ dinner-bell/
 │   ├── main.tsx          # Entry point
 │   └── index.css         # Global styles
 ├── PLAN.md               # Development roadmap
+├── DESCRIPTION.md        # Detailed explanation of every file
 └── README.md
 ```
+
+For a detailed explanation of every file in the project, see [DESCRIPTION.md](./DESCRIPTION.md).
 
 ## Contributing
 
