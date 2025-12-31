@@ -85,17 +85,17 @@
 ---
 
 ### Phase 2: Enhanced Recipe Input
-**Status**: Not Started
+**Status**: In Progress
 
-- [ ] Recipe URL parser integration
-  - [ ] Research and select parsing solution
-  - [ ] Implement parser service
-  - [ ] Handle common recipe sites (AllRecipes, Food Network, NYTimes Cooking)
-  - [ ] Fallback for unsupported sites
-- [ ] Import recipe from URL feature
-- [ ] Ingredient parser (convert text to structured data)
+- [x] Recipe URL parser integration
+  - [x] Research and select parsing solution (JSON-LD + Cheerio)
+  - [x] Implement parser service
+  - [x] Handle common recipe sites (AllRecipes, Food Network, NYTimes Cooking)
+  - [x] Fallback for unsupported sites
+- [x] Import recipe from URL feature
+- [x] Ingredient parser (convert text to structured data)
 - [ ] Bulk import (multiple recipes)
-- [ ] Recipe image upload/URL
+- [x] Recipe image upload/URL (OCR support implemented)
 
 **Success Criteria**: Users can paste URLs and automatically extract recipe data
 

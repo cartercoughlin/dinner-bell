@@ -22,13 +22,152 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // URL import state
+  const [importUrl, setImportUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+
+  // Ingredient bulk parse state
+  const [bulkIngredientsText, setBulkIngredientsText] = useState('');
+  const [isParsingIngredients, setIsParsingIngredients] = useState(false);
+
+  // Image import state
+  const [isImportingImages, setIsImportingImages] = useState(false);
+  const [imageImportError, setImageImportError] = useState('');
+
   const addIngredient = () => {
     setIngredients([...ingredients, { id: crypto.randomUUID(), name: '', amount: '', unit: '' }]);
+  };
+
+  const handleBulkAddIngredients = async () => {
+    if (!bulkIngredientsText.trim()) return;
+
+    setIsParsingIngredients(true);
+    try {
+      const response = await fetch('http://localhost:3001/api/parse-ingredients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: bulkIngredientsText }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to parse ingredients');
+      }
+
+      const { ingredients: parsedIngredients } = await response.json();
+
+      // Filter out empty ingredients from the current list
+      const currentList = ingredients.filter(ing => ing.name.trim() !== '');
+
+      setIngredients([...currentList, ...parsedIngredients]);
+      setBulkIngredientsText('');
+    } catch (error) {
+      console.error('Error parsing ingredients:', error);
+      alert('Failed to parse ingredients. Please check your connection to the server.');
+    } finally {
+      setIsParsingIngredients(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsImportingImages(true);
+    setImageImportError('');
+
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('images', files[i]);
+    }
+
+    try {
+      const response = await fetch('http://localhost:3001/api/parse-images', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to parse images');
+      }
+
+      const { recipe } = await response.json();
+
+      // Update form with OCR results
+      if (recipe.title) setTitle(recipe.title);
+      if (recipe.ingredients && recipe.ingredients.length > 0) {
+        setIngredients(recipe.ingredients);
+      }
+      if (recipe.directions && recipe.directions.length > 0) {
+        setDirections(recipe.directions.join('\n\n'));
+      }
+      if (recipe.servings) setServings(recipe.servings);
+      if (recipe.prepTime) setPrepTime(recipe.prepTime.toString());
+      if (recipe.cookTime) setCookTime(recipe.cookTime.toString());
+
+      // Clear the input
+      e.target.value = '';
+    } catch (error) {
+      console.error('Error importing from images:', error);
+      setImageImportError(error instanceof Error ? error.message : 'Failed to import from images');
+    } finally {
+      setIsImportingImages(false);
+    }
   };
 
   const removeIngredient = (id: string) => {
     if (ingredients.length > 1) {
       setIngredients(ingredients.filter((ing) => ing.id !== id));
+    }
+  };
+
+  const handleImportFromUrl = async (urlToImport?: string) => {
+    const url = urlToImport || importUrl;
+    if (!url.trim()) {
+      setImportError('Please enter a URL');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError('');
+
+    try {
+      const response = await fetch('http://localhost:3001/api/parse-recipe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to import recipe');
+      }
+
+      const { recipe } = await response.json();
+
+      // Populate form with imported data
+      setTitle(recipe.title || '');
+      setServings(recipe.servings || 4);
+      setPrepTime(recipe.prepTime?.toString() || '');
+      setCookTime(recipe.cookTime?.toString() || '');
+      setDirections(recipe.directions?.join('\n\n') || '');
+      setSourceUrl(recipe.sourceUrl || url.trim());
+      setTags(recipe.tags?.join(', ') || '');
+      setTools(recipe.tools?.join(', ') || '');
+      setImageUrl(recipe.imageUrl || '');
+      setIngredients(recipe.ingredients || [{ id: crypto.randomUUID(), name: '', amount: '', unit: '' }]);
+
+      setImportUrl('');
+      setImportError('');
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Failed to import recipe. Please try again.');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -94,6 +233,120 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: '800px' }}>
+      {/* URL Import Section */}
+      <div style={{
+        marginBottom: '2rem',
+        padding: '1.5rem',
+        backgroundColor: 'rgba(100, 108, 255, 0.1)',
+        borderRadius: '8px',
+        border: '2px dashed rgba(100, 108, 255, 0.3)'
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.125rem' }}>
+          Import from URL
+        </h3>
+        <p style={{ marginBottom: '1rem', color: '#666', fontSize: '0.875rem' }}>
+          Paste a recipe URL to automatically fill in the details (works with most recipe websites)
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <input
+              type="url"
+              placeholder="https://example.com/recipe"
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
+              onPaste={(e) => {
+                const pastedUrl = e.clipboardData.getData('text').trim();
+                if (pastedUrl && (pastedUrl.startsWith('http://') || pastedUrl.startsWith('https://'))) {
+                  setImportUrl(pastedUrl);
+                  handleImportFromUrl(pastedUrl);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleImportFromUrl();
+                }
+              }}
+              disabled={isImporting}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                fontSize: '1rem',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                backgroundColor: isImporting ? '#f5f5f5' : 'white',
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => handleImportFromUrl()}
+            disabled={isImporting}
+            style={{
+              padding: '0.75rem 1.5rem',
+              fontSize: '1rem',
+              backgroundColor: isImporting ? '#ccc' : '#646cff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isImporting ? 'not-allowed' : 'pointer',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isImporting ? 'Importing...' : 'Import'}
+          </button>
+        </div>
+        {importError && (
+          <p style={{ color: '#f44336', fontSize: '0.875rem', marginTop: '0.5rem', marginBottom: 0 }}>
+            {importError}
+          </p>
+        )}
+      </div>
+
+      {/* Image Import Section */}
+      <div style={{
+        marginBottom: '2rem',
+        padding: '1.5rem',
+        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+        borderRadius: '8px',
+        border: '2px dashed rgba(76, 175, 80, 0.3)'
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.125rem', color: '#2e7d32' }}>
+          Import from Photos
+        </h3>
+        <p style={{ marginBottom: '1rem', color: '#666', fontSize: '0.875rem' }}>
+          Upload one or more photos of a printed recipe or cookbook page (OCR)
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleImageUpload}
+            disabled={isImportingImages}
+            style={{
+              width: '100%',
+              padding: '0.5rem',
+              fontSize: '1rem',
+              backgroundColor: 'white',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+            }}
+          />
+          {isImportingImages && (
+            <p style={{ color: '#2e7d32', fontSize: '0.875rem', margin: '0.5rem 0 0 0', fontWeight: '500' }}>
+              Scanning images... This can take a few seconds.
+            </p>
+          )}
+          {imageImportError && (
+            <p style={{ color: '#f44336', fontSize: '0.875rem', margin: '0.5rem 0 0 0' }}>
+              {imageImportError}
+            </p>
+          )}
+        </div>
+      </div>
+
       <div style={{ marginBottom: '1.5rem' }}>
         <label htmlFor="title" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
           Recipe Title *
@@ -193,9 +446,58 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
               cursor: 'pointer',
             }}
           >
-            + Add Ingredient
+            + Add Individual Ingredient
           </button>
         </div>
+
+        {/* Bulk Add Section */}
+        <div style={{
+          marginBottom: '1rem',
+          padding: '1rem',
+          backgroundColor: '#f9f9f9',
+          borderRadius: '4px',
+          border: '1px solid #eee'
+        }}>
+          <label htmlFor="bulkIngredients" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+            Quickly add multiple ingredients (one per line)
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <textarea
+              id="bulkIngredients"
+              value={bulkIngredientsText}
+              onChange={(e) => setBulkIngredientsText(e.target.value)}
+              placeholder="e.g.&#10;1 cup flour&#10;2 tbsp sugar&#10;1 tsp salt"
+              rows={3}
+              style={{
+                flex: 1,
+                padding: '0.5rem',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                fontFamily: 'inherit',
+                fontSize: '0.875rem'
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleBulkAddIngredients}
+              disabled={isParsingIngredients || !bulkIngredientsText.trim()}
+              style={{
+                alignSelf: 'flex-end',
+                padding: '0.5rem 1rem',
+                fontSize: '0.875rem',
+                backgroundColor: isParsingIngredients ? '#ccc' : '#4caf50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isParsingIngredients ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {isParsingIngredients ? 'Parsing...' : 'Add All'}
+            </button>
+          </div>
+        </div>
+
         {errors.ingredients && (
           <p style={{ color: '#f44336', fontSize: '0.875rem', marginBottom: '0.5rem' }}>{errors.ingredients}</p>
         )}
