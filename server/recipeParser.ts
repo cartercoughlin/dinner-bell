@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import crypto from 'node:crypto';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import axios from 'axios';
 
 // @ts-ignore
 puppeteer.use(StealthPlugin());
@@ -20,9 +21,72 @@ interface ParsedRecipe {
 }
 
 export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
+  // STRATEGY: Try axios first (fast, works on Vercel), fall back to Puppeteer if needed
+
+  try {
+    console.log(`[ATTEMPT 1] Fetching URL with axios: ${url}`);
+    const html = await fetchWithAxios(url);
+    const $ = cheerio.load(html);
+
+    // Try to parse schema.org JSON-LD first (most reliable)
+    const schemaRecipe = parseSchemaOrgRecipe($, url);
+    if (schemaRecipe && isValidRecipe(schemaRecipe)) {
+      console.log(`✓ Successfully parsed recipe with axios`);
+      return schemaRecipe;
+    }
+
+    // Try HTML parsing
+    const htmlRecipe = parseHtmlRecipe($, url);
+    if (htmlRecipe && isValidRecipe(htmlRecipe)) {
+      console.log(`✓ Successfully parsed recipe with axios (HTML fallback)`);
+      return htmlRecipe;
+    }
+
+    console.log(`⚠ Axios fetch succeeded but recipe data incomplete, trying Puppeteer...`);
+  } catch (axiosError: any) {
+    console.log(`⚠ Axios fetch failed (${axiosError.message}), falling back to Puppeteer...`);
+  }
+
+  // FALLBACK: Use Puppeteer for JavaScript-heavy sites or those blocking simple requests
+  return await parseRecipeWithPuppeteer(url);
+}
+
+async function fetchWithAxios(url: string): Promise<string> {
+  const response = await axios.get(url, {
+    timeout: 15000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+    },
+    maxRedirects: 5,
+  });
+
+  if (response.status !== 200) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.data;
+}
+
+function isValidRecipe(recipe: ParsedRecipe): boolean {
+  // A valid recipe should have at minimum: title, some ingredients, and some directions
+  return !!(
+    recipe.title &&
+    recipe.title !== 'Untitled Recipe' &&
+    recipe.ingredients.length > 0 &&
+    recipe.directions.length > 0 &&
+    !recipe.directions[0].includes('No directions found')
+  );
+}
+
+async function parseRecipeWithPuppeteer(url: string): Promise<ParsedRecipe> {
   let browser;
   try {
-    console.log(`Fetching URL with Puppeteer: ${url}`);
+    console.log(`[ATTEMPT 2] Fetching URL with Puppeteer: ${url}`);
 
     browser = await puppeteer.launch({
       headless: true,
@@ -76,10 +140,12 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
     // Try to parse schema.org JSON-LD first (most reliable)
     const schemaRecipe = parseSchemaOrgRecipe($, url);
     if (schemaRecipe) {
+      console.log(`✓ Successfully parsed recipe with Puppeteer (schema.org)`);
       return schemaRecipe;
     }
 
     // Fallback to HTML parsing
+    console.log(`✓ Successfully parsed recipe with Puppeteer (HTML)`);
     return parseHtmlRecipe($, url);
   } catch (error) {
     throw error;
