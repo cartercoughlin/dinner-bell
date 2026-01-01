@@ -7,6 +7,9 @@ interface RecipeFormProps {
   onCancel: () => void;
 }
 
+// API endpoint - defaults to localhost for development
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
   const [title, setTitle] = useState(initialData?.title || '');
   const [servings, setServings] = useState(initialData?.servings || 4);
@@ -44,7 +47,7 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
 
     setIsParsingIngredients(true);
     try {
-      const response = await fetch('http://localhost:3001/api/parse-ingredients', {
+      const response = await fetch(`${API_URL}/api/parse-ingredients`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +87,7 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/parse-images', {
+      const response = await fetch(`${API_URL}/api/parse-images`, {
         method: 'POST',
         body: formData,
       });
@@ -135,7 +138,7 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
     setImportError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/parse-recipe', {
+      const response = await fetch(`${API_URL}/api/parse-recipe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
