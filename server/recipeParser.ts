@@ -1,11 +1,6 @@
 import * as cheerio from 'cheerio';
 import crypto from 'node:crypto';
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import axios from 'axios';
-
-// @ts-ignore
-puppeteer.use(StealthPlugin());
 
 interface ParsedRecipe {
   title: string;
@@ -20,60 +15,147 @@ interface ParsedRecipe {
   imageUrl?: string;
 }
 
-export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
-  // STRATEGY: Try axios first (fast, works on Vercel), fall back to Puppeteer if needed
+// Rotate through realistic browser User-Agent strings to reduce fingerprinting
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0',
+];
 
-  try {
-    console.log(`[ATTEMPT 1] Fetching URL with axios: ${url}`);
-    const html = await fetchWithAxios(url);
-    const $ = cheerio.load(html);
-
-    // Try to parse schema.org JSON-LD first (most reliable)
-    const schemaRecipe = parseSchemaOrgRecipe($, url);
-    if (schemaRecipe && isValidRecipe(schemaRecipe)) {
-      console.log(`✓ Successfully parsed recipe with axios`);
-      return schemaRecipe;
-    }
-
-    // Try HTML parsing
-    const htmlRecipe = parseHtmlRecipe($, url);
-    if (htmlRecipe && isValidRecipe(htmlRecipe)) {
-      console.log(`✓ Successfully parsed recipe with axios (HTML fallback)`);
-      return htmlRecipe;
-    }
-
-    console.log(`⚠ Axios fetch succeeded but recipe data incomplete, trying Puppeteer...`);
-  } catch (axiosError: any) {
-    console.log(`⚠ Axios fetch failed (${axiosError.message}), falling back to Puppeteer...`);
-  }
-
-  // FALLBACK: Use Puppeteer for JavaScript-heavy sites or those blocking simple requests
-  return await parseRecipeWithPuppeteer(url);
+function pickUserAgent(): string {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
-async function fetchWithAxios(url: string): Promise<string> {
+// Build headers that look like a real browser visit from a Google search result
+function buildHeaders(url: string, userAgent: string): Record<string, string> {
+  const { hostname } = new URL(url);
+  return {
+    'User-Agent': userAgent,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Referer': `https://www.google.com/search?q=${encodeURIComponent(hostname)}+recipe`,
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'cross-site',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0',
+  };
+}
+
+export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
+  const errors: string[] = [];
+
+  // --- Attempt 1: Direct fetch with realistic headers ---
+  try {
+    console.log(`[Attempt 1] Direct fetch: ${url}`);
+    const html = await fetchWithAxios(url);
+    const recipe = extractRecipe(html, url);
+    if (recipe) {
+      console.log(`✓ Parsed recipe on first attempt`);
+      return recipe;
+    }
+    errors.push('Direct fetch returned HTML but recipe data was incomplete');
+  } catch (err: any) {
+    errors.push(`Direct fetch failed: ${err.message}`);
+    console.log(`⚠ Attempt 1 failed: ${err.message}`);
+  }
+
+  // --- Attempt 2: Retry with a different User-Agent and slight delay ---
+  await delay(1000);
+  try {
+    console.log(`[Attempt 2] Retry with different UA: ${url}`);
+    const html = await fetchWithAxios(url, { freshUA: true });
+    const recipe = extractRecipe(html, url);
+    if (recipe) {
+      console.log(`✓ Parsed recipe on retry`);
+      return recipe;
+    }
+    errors.push('Retry returned HTML but recipe data was incomplete');
+  } catch (err: any) {
+    errors.push(`Retry failed: ${err.message}`);
+    console.log(`⚠ Attempt 2 failed: ${err.message}`);
+  }
+
+  // --- Attempt 3: Try Google webcache ---
+  try {
+    console.log(`[Attempt 3] Google webcache: ${url}`);
+    const cacheUrl = `https://webcache.googleusercontent.com/search?q=cache:${encodeURIComponent(url)}`;
+    const html = await fetchWithAxios(cacheUrl);
+    const recipe = extractRecipe(html, url);
+    if (recipe) {
+      console.log(`✓ Parsed recipe from Google cache`);
+      return recipe;
+    }
+    errors.push('Google cache returned HTML but recipe data was incomplete');
+  } catch (err: any) {
+    errors.push(`Google cache failed: ${err.message}`);
+    console.log(`⚠ Attempt 3 failed: ${err.message}`);
+  }
+
+  // All attempts exhausted — return the best partial result or throw
+  console.error(`All attempts failed for ${url}:`, errors);
+  throw new Error(
+    `Could not extract a complete recipe from this URL. The site may require JavaScript or have strong anti-bot protections. Try copy-pasting the recipe text manually.`
+  );
+}
+
+/**
+ * Fetch HTML from a URL with browser-like headers.
+ */
+async function fetchWithAxios(url: string, opts?: { freshUA?: boolean }): Promise<string> {
+  const ua = opts?.freshUA ? pickUserAgent() : USER_AGENTS[0];
+  const headers = buildHeaders(url, ua);
+
   const response = await axios.get(url, {
     timeout: 15000,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-    },
+    headers,
     maxRedirects: 5,
+    // Accept any 2xx status
+    validateStatus: (status) => status >= 200 && status < 300,
   });
-
-  if (response.status !== 200) {
-    throw new Error(`HTTP ${response.status}`);
-  }
 
   return response.data;
 }
 
+/**
+ * Try every extraction strategy on the HTML and return the first valid result.
+ */
+function extractRecipe(html: string, sourceUrl: string): ParsedRecipe | null {
+  const $ = cheerio.load(html);
+
+  // Strategy 1: schema.org JSON-LD (most reliable, used by 90%+ of recipe sites)
+  const schemaRecipe = parseSchemaOrgRecipe($, sourceUrl);
+  if (schemaRecipe && isValidRecipe(schemaRecipe)) {
+    return schemaRecipe;
+  }
+
+  // Strategy 2: Microdata (schema.org via itemtype attributes)
+  const microdataRecipe = parseMicrodataRecipe($, sourceUrl);
+  if (microdataRecipe && isValidRecipe(microdataRecipe)) {
+    return microdataRecipe;
+  }
+
+  // Strategy 3: HTML heuristic parsing (class names, common patterns)
+  const htmlRecipe = parseHtmlRecipe($, sourceUrl);
+  if (htmlRecipe && isValidRecipe(htmlRecipe)) {
+    return htmlRecipe;
+  }
+
+  return null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function isValidRecipe(recipe: ParsedRecipe): boolean {
-  // A valid recipe should have at minimum: title, some ingredients, and some directions
   return !!(
     recipe.title &&
     recipe.title !== 'Untitled Recipe' &&
@@ -83,78 +165,9 @@ function isValidRecipe(recipe: ParsedRecipe): boolean {
   );
 }
 
-async function parseRecipeWithPuppeteer(url: string): Promise<ParsedRecipe> {
-  let browser;
-  try {
-    console.log(`[ATTEMPT 2] Fetching URL with Puppeteer: ${url}`);
-
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
-    const page = await browser.newPage();
-
-    // Set a realistic viewport
-    await page.setViewport({ width: 1280, height: 800 });
-
-    // Set realistic headers
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'en-US,en;q=0.9',
-    });
-
-    // Navigate to the URL
-    let response;
-    try {
-      response = await page.goto(url, {
-        waitUntil: 'load',
-        timeout: 45000,
-      });
-    } catch (e: any) {
-      if (e.message.includes('detached')) {
-        console.log('Frame detached, retrying once...');
-        response = await page.goto(url, {
-          waitUntil: 'domcontentloaded',
-          timeout: 45000,
-        });
-      } else {
-        throw e;
-      }
-    }
-
-    // Wait for any final JS content to stabilize
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    if (!response || !response.ok()) {
-      const status = response ? response.status() : 'unknown';
-      // If it's a redirect, we might still have content we can parse
-      if (status !== 301 && status !== 302 && status !== 'unknown') {
-        throw new Error(`Failed to load page: status ${status}`);
-      }
-    }
-
-    // Get the HTML content from the main frame
-    const html = await page.evaluate(() => document.documentElement.outerHTML);
-    const $ = cheerio.load(html);
-
-    // Try to parse schema.org JSON-LD first (most reliable)
-    const schemaRecipe = parseSchemaOrgRecipe($, url);
-    if (schemaRecipe) {
-      console.log(`✓ Successfully parsed recipe with Puppeteer (schema.org)`);
-      return schemaRecipe;
-    }
-
-    // Fallback to HTML parsing
-    console.log(`✓ Successfully parsed recipe with Puppeteer (HTML)`);
-    return parseHtmlRecipe($, url);
-  } catch (error) {
-    throw error;
-  } finally {
-    if (browser) {
-      await browser.close().catch(console.error);
-    }
-  }
-}
+// ---------------------------------------------------------------------------
+// Strategy 1: JSON-LD schema.org
+// ---------------------------------------------------------------------------
 
 function isRecipeType(type: any): boolean {
   if (type === 'Recipe') return true;
@@ -164,7 +177,6 @@ function isRecipeType(type: any): boolean {
 
 function parseSchemaOrgRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedRecipe | null {
   try {
-    // Look for JSON-LD script tags with Recipe schema
     const scripts = $('script[type="application/ld+json"]');
 
     for (let i = 0; i < scripts.length; i++) {
@@ -201,19 +213,85 @@ function parseSchemaOrgRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedR
             imageUrl: parseImage(recipe.image),
           };
         }
-      } catch (parseError) {
+      } catch {
         continue;
       }
     }
 
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
 
+// ---------------------------------------------------------------------------
+// Strategy 2: Microdata (itemtype="http://schema.org/Recipe")
+// ---------------------------------------------------------------------------
+
+function parseMicrodataRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedRecipe | null {
+  try {
+    const recipeNode = $('[itemtype*="schema.org/Recipe"]');
+    if (recipeNode.length === 0) return null;
+
+    const title = recipeNode.find('[itemprop="name"]').first().text().trim() || 'Untitled Recipe';
+
+    const ingredientEls = recipeNode.find('[itemprop="recipeIngredient"], [itemprop="ingredients"]');
+    const ingredientTexts: string[] = [];
+    ingredientEls.each((_, el) => {
+      const text = $(el).text().trim();
+      if (text) ingredientTexts.push(text);
+    });
+
+    const instructionEls = recipeNode.find('[itemprop="recipeInstructions"]');
+    const directionTexts: string[] = [];
+    instructionEls.each((_, el) => {
+      // Could be a single block of text or individual steps
+      const steps = $(el).find('[itemprop="step"], [itemprop="text"], li');
+      if (steps.length > 0) {
+        steps.each((_, step) => {
+          const text = $(step).text().trim();
+          if (text) directionTexts.push(text);
+        });
+      } else {
+        const text = $(el).text().trim();
+        if (text) {
+          // Split on newlines if it's a big block
+          text.split(/\n+/).forEach((line) => {
+            const trimmed = line.trim();
+            if (trimmed) directionTexts.push(trimmed);
+          });
+        }
+      }
+    });
+
+    const prepTimeStr = recipeNode.find('[itemprop="prepTime"]').attr('content') ||
+      recipeNode.find('[itemprop="prepTime"]').attr('datetime') || '';
+    const cookTimeStr = recipeNode.find('[itemprop="cookTime"]').attr('content') ||
+      recipeNode.find('[itemprop="cookTime"]').attr('datetime') || '';
+    const yieldStr = recipeNode.find('[itemprop="recipeYield"]').text().trim();
+    const imageEl = recipeNode.find('[itemprop="image"]').first();
+    const imageUrl = imageEl.attr('src') || imageEl.attr('content') || undefined;
+
+    return {
+      title,
+      ingredients: parseIngredients(ingredientTexts),
+      directions: directionTexts.length > 0 ? directionTexts : ['No directions found. Please add them manually.'],
+      prepTime: parseTime(prepTimeStr),
+      cookTime: parseTime(cookTimeStr),
+      servings: parseServings(yieldStr),
+      sourceUrl,
+      imageUrl,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Strategy 3: HTML heuristic parsing
+// ---------------------------------------------------------------------------
+
 function parseHtmlRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedRecipe {
-  // Fallback HTML parsing for sites without schema.org
   const title = $('h1').first().text().trim() ||
     $('[class*="recipe-title"]').first().text().trim() ||
     $('[class*="entry-title"]').first().text().trim() ||
@@ -226,12 +304,13 @@ function parseHtmlRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedRecipe
     '.ingredients li',
     '[class*="ingredient"] li',
     '.wprm-recipe-ingredient',
-    '.tasty-recipe-ingredients li'
+    '.tasty-recipe-ingredients li',
+    '.mntl-structured-ingredients__list-item',
   ];
 
   $(ingredientSelectors.join(', ')).each((_, el) => {
     const text = $(el).text().trim().replace(/\s+/g, ' ');
-    if (text && text.length > 0 && text.length < 200) { // Avoid picking up large text blocks
+    if (text && text.length > 0 && text.length < 200) {
       ingredients.push(text);
     }
   });
@@ -244,7 +323,8 @@ function parseHtmlRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedRecipe
     '[class*="instruction"] li',
     '.wprm-recipe-instruction',
     '.tasty-recipe-instructions li',
-    '[class*="step"]'
+    '[class*="step"] p',
+    '.mntl-sc-block-group--OL li',
   ];
 
   $(directionSelectors.join(', ')).each((_, el) => {
@@ -274,6 +354,10 @@ function parseHtmlRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedRecipe
   };
 }
 
+// ---------------------------------------------------------------------------
+// Shared parsing helpers
+// ---------------------------------------------------------------------------
+
 const COMMON_UNITS = [
   'cup', 'cups', 'tablespoon', 'tablespoons', 'tbsp', 'tbsps', 'teaspoon', 'teaspoons', 'tsp', 'tsps',
   'ounce', 'ounces', 'oz', 'pound', 'pounds', 'lb', 'lbs', 'gram', 'grams', 'g', 'kilogram', 'kilograms', 'kg',
@@ -285,15 +369,11 @@ const COMMON_UNITS = [
 
 export function parseIngredients(ingredientList: string[]): Array<{ id: string; name: string; amount: string; unit: string }> {
   return ingredientList.map((ingredient) => {
-    // Clean up the ingredient string and remove leading noise common in OCR
-    // Remove things like "E ", "| ", "l ", etc at the very start
     let cleaned = ingredient.trim()
-      .replace(/^([A-Z|]|\d{1,2}[.,])\s+/, '') // Remove single capital letter or index noise
-      .replace(/^[^a-zA-Z\d(¼-¾)]+\s*/, '')   // Remove symbols
+      .replace(/^([A-Z|]|\d{1,2}[.,])\s+/, '')
+      .replace(/^[^a-zA-Z\d(¼-¾)]+\s*/, '')
       .replace(/\s+/g, ' ');
 
-    // 1. Try to find the amount (numbers, fractions, decimals at the start)
-    // Updated regex to better handle fractions like 1/2 or 1 1/2
     const amountRegex = /^(\d+\s+\d\/\d|\d+\/\d|\d+(\.\d+)?|\d+)?\s*/;
     const amountMatch = cleaned.match(amountRegex);
 
@@ -305,17 +385,14 @@ export function parseIngredients(ingredientList: string[]): Array<{ id: string; 
       remaining = cleaned.substring(amountMatch[0].length).trim();
     }
 
-    // 2. Try to find the unit
     let unit = '';
     const words = remaining.split(' ');
     if (words.length > 0) {
-      // Check first word
       const firstWord = words[0].toLowerCase().replace(/[.,]/g, '');
       if (COMMON_UNITS.includes(firstWord)) {
         unit = words[0];
         remaining = words.slice(1).join(' ');
       } else if (words.length > 1) {
-        // Check if first two words make a unit (e.g., "fluid oz")
         const twoWords = (words[0] + ' ' + words[1]).toLowerCase().replace(/[.,]/g, '');
         if (COMMON_UNITS.includes(twoWords)) {
           unit = words[0] + ' ' + words[1];
@@ -356,11 +433,9 @@ function parseDirections(instructions: any): string[] {
   }
 
   if (typeof instructions === 'string') {
-    // Some sites put all steps in one string with newlines or numbers
     if (instructions.includes('\n')) {
       return instructions.split(/\n+/).map((s) => s.trim()).filter(Boolean);
     }
-    // If it's a long string without obvious separators, we might have to just return it as one step
     return [instructions.trim()];
   }
 
@@ -370,7 +445,6 @@ function parseDirections(instructions: any): string[] {
 function parseTime(timeString?: string): number | undefined {
   if (!timeString) return undefined;
 
-  // Parse ISO 8601 duration (e.g., PT15M, PT1H30M)
   const match = timeString.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
   if (match) {
     const hours = parseInt(match[1] || '0');
