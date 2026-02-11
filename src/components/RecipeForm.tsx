@@ -8,7 +8,10 @@ interface RecipeFormProps {
 }
 
 // API endpoint - defaults to localhost for development
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// In production the frontend is served from the same Express server, so API
+// calls use relative URLs (empty string).  During local dev, VITE_API_URL
+// can point to the separate backend on port 3001.
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
   const [title, setTitle] = useState(initialData?.title || '');

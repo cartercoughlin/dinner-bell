@@ -1,26 +1,33 @@
+# --- Stage 1: Build the Vite frontend ---
+FROM node:20-slim AS build
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+# Build with empty VITE_API_URL so the frontend uses relative URLs (same origin)
+ENV VITE_API_URL=
+RUN npm run build
+
+# --- Stage 2: Production image ---
 FROM node:20-slim
 
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
+RUN npm ci --omit=dev && npm install -g tsx
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy server code
+# Copy server source
 COPY server ./server
 COPY tsconfig.json ./
 
-# Install tsx for running TypeScript directly
-RUN npm install -g tsx
+# Copy the built frontend from the build stage
+COPY --from=build /app/dist ./dist
 
-# Expose the server port
 EXPOSE 3001
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Run the server
 CMD ["tsx", "server/index.ts"]

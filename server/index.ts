@@ -3,28 +3,21 @@ import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { parseRecipeFromUrl, parseIngredients } from './recipeParser.js';
 import { parseRecipeFromImages } from './imageParser.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configure CORS with environment-based origins
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:5173', 'http://localhost:4173'];
-
+// In production, frontend is served from the same origin so CORS is only
+// needed during local development (Vite dev server on a different port).
 const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: process.env.NODE_ENV === 'production'
+    ? false                          // same-origin, no CORS needed
+    : ['http://localhost:5173', 'http://localhost:4173'],
   credentials: true,
 };
 
@@ -158,6 +151,16 @@ app.post('/api/parse-images', upload.array('images'), async (req, res) => {
   }
 });
 
+// --- Serve the Vite-built frontend in production ---
+const distPath = path.resolve(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  // SPA catch-all: send index.html for any non-API route
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 app.listen(PORT, () => {
-  console.log(`Recipe parser server running on http://localhost:${PORT}`);
+  console.log(`Dinner Bell running on http://localhost:${PORT}`);
 });
