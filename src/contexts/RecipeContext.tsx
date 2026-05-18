@@ -1,8 +1,18 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { MealPlan, MealType, Recipe, RecipeFormData } from '../types/recipe';
+import {
+  supabase,
+  isSupabaseEnabled,
+  getUserToken,
+  recipeToRow,
+  rowToRecipe,
+  mealPlanToRow,
+  rowToMealPlan,
+} from '../lib/supabase';
 
 interface RecipeContextType {
   recipes: Recipe[];
+  loading: boolean;
   addRecipe: (recipe: RecipeFormData) => Recipe;
   updateRecipe: (recipe: Recipe) => void;
   deleteRecipe: (id: string) => void;
@@ -15,26 +25,95 @@ interface RecipeContextType {
 
 const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'dinner-bell-recipes';
-const MEAL_PLAN_STORAGE_KEY = 'dinner-bell-meal-plans';
+const LS_RECIPES = 'dinner-bell-recipes';
+const LS_MEAL_PLANS = 'dinner-bell-meal-plans';
+
+function readLS<T>(key: string): T[] {
+  try {
+    const s = localStorage.getItem(key);
+    return s ? (JSON.parse(s) as T[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 export function RecipeProvider({ children }: { children: ReactNode }) {
-  const [recipes, setRecipes] = useState<Recipe[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  });
-  const [mealPlans, setMealPlans] = useState<MealPlan[]>(() => {
-    const stored = localStorage.getItem(MEAL_PLAN_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  });
+  // Seed state from localStorage so existing data shows instantly
+  const [recipes, setRecipes] = useState<Recipe[]>(() => readLS<Recipe>(LS_RECIPES));
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>(() => readLS<MealPlan>(LS_MEAL_PLANS));
+  const [loading, setLoading] = useState(isSupabaseEnabled);
 
+  const didLoad = useRef(false);
+
+  // ── Initial load from Supabase ────────────────────────────────────────
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
+    if (!isSupabaseEnabled || didLoad.current) return;
+    didLoad.current = true;
+
+    const token = getUserToken();
+
+    Promise.all([
+      supabase!.from('recipes').select('*').eq('user_token', token).order('date_added'),
+      supabase!.from('meal_plans').select('*').eq('user_token', token),
+    ])
+      .then(([{ data: rRows, error: rErr }, { data: mpRows, error: mpErr }]) => {
+        if (rErr || mpErr) {
+          console.error('Supabase load error:', rErr ?? mpErr);
+          return; // Keep localStorage data as graceful fallback
+        }
+
+        const cloudRecipes = (rRows ?? []).map(rowToRecipe);
+        const cloudMealPlans = (mpRows ?? []).map(rowToMealPlan);
+
+        if (cloudRecipes.length > 0) {
+          // Cloud is the authoritative source
+          setRecipes(cloudRecipes);
+          setMealPlans(cloudMealPlans);
+        } else {
+          // Cloud empty — migrate any existing localStorage data
+          const localRecipes = readLS<Recipe>(LS_RECIPES);
+          const localMealPlans = readLS<MealPlan>(LS_MEAL_PLANS);
+
+          if (localRecipes.length > 0) {
+            supabase!
+              .from('recipes')
+              .insert(localRecipes.map(r => recipeToRow(r, token)))
+              .then(({ error }) => {
+                if (error) {
+                  console.error('Migration error (recipes):', error);
+                  return;
+                }
+                if (localMealPlans.length > 0) {
+                  supabase!
+                    .from('meal_plans')
+                    .insert(localMealPlans.map(mp => mealPlanToRow(mp, token)));
+                }
+                localStorage.removeItem(LS_RECIPES);
+                localStorage.removeItem(LS_MEAL_PLANS);
+              });
+
+            // Keep in-memory state — no flicker
+            setRecipes(localRecipes);
+            setMealPlans(localMealPlans);
+          }
+        }
+      })
+      .catch(err => console.error('Supabase fetch failed:', err))
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── localStorage sync — only when Supabase is NOT configured ─────────
+  useEffect(() => {
+    if (isSupabaseEnabled) return;
+    localStorage.setItem(LS_RECIPES, JSON.stringify(recipes));
   }, [recipes]);
 
   useEffect(() => {
-    localStorage.setItem(MEAL_PLAN_STORAGE_KEY, JSON.stringify(mealPlans));
+    if (isSupabaseEnabled) return;
+    localStorage.setItem(LS_MEAL_PLANS, JSON.stringify(mealPlans));
   }, [mealPlans]);
+
+  // ── Mutations (optimistic update + background Supabase sync) ─────────
 
   const addRecipe = (recipeData: RecipeFormData): Recipe => {
     const newRecipe: Recipe = {
@@ -42,57 +121,93 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
       dateAdded: new Date().toISOString(),
     };
-    setRecipes((prev) => [...prev, newRecipe]);
+    setRecipes(prev => [...prev, newRecipe]);
+
+    if (isSupabaseEnabled) {
+      const token = getUserToken();
+      supabase!
+        .from('recipes')
+        .insert(recipeToRow(newRecipe, token))
+        .then(({ error }) => {
+          if (error) console.error('Supabase insert failed:', error);
+        });
+    }
+
     return newRecipe;
   };
 
   const updateRecipe = (recipe: Recipe) => {
-    setRecipes((prev) =>
-      prev.map((r) =>
-        r.id === recipe.id ? recipe : r
-      )
-    );
+    setRecipes(prev => prev.map(r => (r.id === recipe.id ? recipe : r)));
+
+    if (isSupabaseEnabled) {
+      const token = getUserToken();
+      supabase!
+        .from('recipes')
+        .upsert(recipeToRow(recipe, token))
+        .then(({ error }) => {
+          if (error) console.error('Supabase upsert failed:', error);
+        });
+    }
   };
 
   const deleteRecipe = (id: string) => {
-    setRecipes((prev) => prev.filter((recipe) => recipe.id !== id));
-    setMealPlans((prev) => prev.filter((mealPlan) => mealPlan.recipeId !== id));
+    setRecipes(prev => prev.filter(r => r.id !== id));
+    setMealPlans(prev => prev.filter(mp => mp.recipeId !== id));
+
+    if (isSupabaseEnabled) {
+      supabase!
+        .from('recipes')
+        .delete()
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('Supabase delete failed:', error);
+        });
+    }
   };
 
-  const getRecipe = (id: string) => {
-    return recipes.find((recipe) => recipe.id === id);
-  };
+  const getRecipe = (id: string) => recipes.find(r => r.id === id);
 
   const setMealPlan = (date: string, mealType: MealType, recipeId: string) => {
-    setMealPlans((prev) => {
-      const nextPlan: MealPlan = {
-        id: `${date}-${mealType}`,
-        date,
-        mealType,
-        recipeId,
-      };
+    const plan: MealPlan = { id: `${date}-${mealType}`, date, mealType, recipeId };
+    setMealPlans(prev => [
+      ...prev.filter(mp => !(mp.date === date && mp.mealType === mealType)),
+      plan,
+    ]);
 
-      return [
-        ...prev.filter((mealPlan) => mealPlan.date !== date || mealPlan.mealType !== mealType),
-        nextPlan,
-      ];
-    });
+    if (isSupabaseEnabled) {
+      const token = getUserToken();
+      supabase!
+        .from('meal_plans')
+        .upsert(mealPlanToRow(plan, token))
+        .then(({ error }) => {
+          if (error) console.error('Supabase upsert (meal_plan) failed:', error);
+        });
+    }
   };
 
   const removeMealPlan = (date: string, mealType: MealType) => {
-    setMealPlans((prev) =>
-      prev.filter((mealPlan) => mealPlan.date !== date || mealPlan.mealType !== mealType)
-    );
+    const id = `${date}-${mealType}`;
+    setMealPlans(prev => prev.filter(mp => mp.id !== id));
+
+    if (isSupabaseEnabled) {
+      supabase!
+        .from('meal_plans')
+        .delete()
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('Supabase delete (meal_plan) failed:', error);
+        });
+    }
   };
 
-  const getMealPlan = (date: string, mealType: MealType) => {
-    return mealPlans.find((mealPlan) => mealPlan.date === date && mealPlan.mealType === mealType);
-  };
+  const getMealPlan = (date: string, mealType: MealType) =>
+    mealPlans.find(mp => mp.date === date && mp.mealType === mealType);
 
   return (
     <RecipeContext.Provider
       value={{
         recipes,
+        loading,
         addRecipe,
         updateRecipe,
         deleteRecipe,
@@ -110,8 +225,6 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
 
 export function useRecipes() {
   const context = useContext(RecipeContext);
-  if (context === undefined) {
-    throw new Error('useRecipes must be used within a RecipeProvider');
-  }
+  if (context === undefined) throw new Error('useRecipes must be used within a RecipeProvider');
   return context;
 }

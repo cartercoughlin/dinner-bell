@@ -5,11 +5,19 @@ import { MakeModeModal } from './MakeModeModal';
 import { Recipe } from '../types/recipe';
 
 export function RecipeList() {
-  const { recipes } = useRecipes();
+  const { recipes, loading } = useRecipes();
   const navigate = useNavigate();
   const [makingRecipe, setMakingRecipe] = useState<Recipe | null>(null);
 
-  if (recipes.length === 0) {
+  if (loading && recipes.length === 0) {
+    return (
+      <div className="empty-state">
+        <div className="loading-spinner" aria-label="Loading recipes" />
+      </div>
+    );
+  }
+
+  if (!loading && recipes.length === 0) {
     return (
       <div className="empty-state">
         <h2>No recipes yet</h2>
