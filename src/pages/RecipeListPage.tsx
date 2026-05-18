@@ -5,24 +5,14 @@ function RecipeListPage() {
   const navigate = useNavigate();
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+    <div className="stack">
+      <div className="page-toolbar">
         <h1>My Recipes</h1>
-        <button
-          onClick={() => navigate('/recipe/new')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            backgroundColor: '#646cff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '500'
-          }}
-        >
-          + Add Recipe
-        </button>
+        <div className="toolbar-actions">
+          <button type="button" onClick={() => navigate('/recipe/new')}>
+            + Add Recipe
+          </button>
+        </div>
       </div>
       <RecipeList />
     </div>

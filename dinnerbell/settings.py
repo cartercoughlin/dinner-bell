@@ -76,6 +76,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Serve the React build (dist/) at the web root via whitenoise.
+# dist/assets/*.js|css are intercepted before reaching Django URL routing.
+WHITENOISE_ROOT = BASE_DIR / 'dist'
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'uploads'
