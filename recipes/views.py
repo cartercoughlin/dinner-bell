@@ -3,9 +3,10 @@ import os
 import random
 import tempfile
 from datetime import date, timedelta
+from pathlib import Path
 
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
@@ -503,3 +504,15 @@ def api_parse_images(request):
 
 def api_health(request):
     return JsonResponse({'status': 'ok'})
+
+
+def spa(request):
+    """Serve the React SPA for all non-API routes."""
+    index = Path(__file__).resolve().parent.parent / 'dist' / 'index.html'
+    if index.exists():
+        return FileResponse(open(index, 'rb'), content_type='text/html')
+    return HttpResponse(
+        '<h1>Frontend not built</h1><p>Run: npm run build</p>',
+        status=503,
+        content_type='text/html',
+    )
