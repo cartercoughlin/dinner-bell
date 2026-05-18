@@ -2,10 +2,28 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+  --background: #ffffff;
+  --surface: #f8fafc;
+  --surface-strong: #f1f5f9;
+  --border: #d0d7de;
+  --border-soft: #e5e7eb;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-pressed: #1d4ed8;
+  --success: #188038;
+  --danger: #d93025;
+  --radius: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  color: var(--text);
+  background-color: var(--background);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -24,6 +42,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   min-height: 100dvh;
+  color: var(--text);
+  background-color: var(--background);
   /* iOS safe areas for notch / home indicator */
   padding-top: env(safe-area-inset-top);
   padding-left: env(safe-area-inset-left);
@@ -37,79 +57,166 @@ body {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: var(--space-6);
 }
 
 .app {
   width: 100%;
 }
 
-header {
-  text-align: center;
-  margin-bottom: 3rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 2px solid #646cff;
+.app-header {
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
 }
 
-header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  color: #646cff;
+.app-header h1 {
+  margin-bottom: var(--space-4);
+  color: var(--text);
+  font-size: 2rem;
+  line-height: 1.15;
 }
 
-header p {
-  font-size: 1.125rem;
-  color: #888;
+.app-nav {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-nav a {
+  flex: 0 0 auto;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.app-nav a.active {
+  color: var(--primary);
 }
 
 main {
   min-height: 60vh;
 }
 
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.page-toolbar h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.toolbar-subtitle {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-top: var(--space-1);
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.text-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  min-height: 44px;
+  color: var(--text);
+  background-color: var(--background);
+  border-color: var(--border);
+}
+
+button {
+  border-radius: var(--radius);
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #767676;
+}
+
 .recipe-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 
 .recipe-card {
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
+  background-color: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 
 .recipe-card:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: #646cff;
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(100, 108, 255, 0.3);
+  background-color: #fff;
+  border-color: var(--border);
 }
 
 .recipe-card h3 {
-  margin-bottom: 1rem;
-  color: #fff;
+  margin: var(--space-4) var(--space-4) var(--space-2);
+  color: var(--text);
   font-size: 1.25rem;
 }
 
 .recipe-card p {
-  margin-bottom: 0.5rem;
-  color: #aaa;
+  margin: 0 var(--space-4) var(--space-2);
+  color: var(--muted);
   font-size: 0.9rem;
+}
+
+.recipe-card-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--surface-strong);
 }
 
 .tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 1rem;
+  margin: var(--space-4);
 }
 
 .tag {
-  background-color: rgba(100, 108, 255, 0.2);
-  color: #9da5ff;
+  background-color: #eff6ff;
+  color: var(--primary);
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -118,8 +225,8 @@ main {
 
 .empty-state {
   text-align: center;
-  padding: 4rem 2rem;
-  color: #888;
+  padding: var(--space-6) var(--space-4);
+  color: var(--muted);
 }
 
 .empty-state h2 {
@@ -132,63 +239,255 @@ button:hover {
 }
 
 button:active {
-  transform: scale(0.98);
+  opacity: 0.8;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
+.grocery-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
 
-  header h1 {
-    color: #646cff;
-  }
+.grocery-category {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: var(--space-4);
+}
 
-  header p {
-    color: #666;
-  }
+.grocery-category h2 {
+  margin: 0 0 var(--space-3);
+  font-size: 1.125rem;
+}
 
-  .recipe-card {
-    background-color: #f9f9f9;
-    border: 1px solid #e0e0e0;
-  }
+.calendar-week {
+  display: grid;
+  grid-template-columns: 84px repeat(7, minmax(102px, 1fr));
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  scroll-snap-type: x proximity;
+}
 
-  .recipe-card:hover {
-    background-color: #fff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
+.calendar-corner,
+.calendar-day-header,
+.calendar-meal-label,
+.calendar-cell {
+  border-right: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+}
 
-  .recipe-card h3 {
-    color: #213547;
-  }
+.calendar-corner {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+}
 
-  .recipe-card p {
-    color: #666;
-  }
+.calendar-day-header {
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--surface);
+}
 
-  .tag {
-    background-color: rgba(100, 108, 255, 0.1);
-    color: #646cff;
-  }
+.calendar-day-header span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
 
-  .empty-state {
-    color: #666;
-  }
+.calendar-day-header strong {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.calendar-day-header.today strong {
+  background: var(--primary);
+  color: #fff;
+}
+
+.calendar-row {
+  display: contents;
+}
+
+.calendar-meal-label {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-height: 86px;
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-2);
+  color: var(--muted);
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.calendar-cell {
+  min-height: 86px;
+  padding: 6px;
+  background: #fff;
+  scroll-snap-align: start;
+}
+
+.calendar-event {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: space-between;
+  padding: 7px;
+  border-radius: 6px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.calendar-event a {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.calendar-event button {
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.calendar-empty-meal {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-empty-meal select {
+  min-height: 34px;
+  font-size: 0.82rem;
+}
+
+.toolbar-actions button,
+.page-toolbar > button,
+.segmented-control button {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.segmented-control button.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.grocery-item {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.grocery-item input {
+  width: 20px;
+  min-height: 20px;
+  margin-top: 2px;
+}
+
+.grocery-item span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.grocery-item em,
+.grocery-item small {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.grocery-item.checked strong,
+.grocery-item.checked em {
+  color: var(--muted);
+  text-decoration: line-through;
 }
 
 @media (max-width: 768px) {
   #root {
-    padding: 1rem;
+    padding: var(--space-4);
+    padding-top: max(var(--space-4), env(safe-area-inset-top));
+    padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
   }
 
-  header h1 {
-    font-size: 2rem;
+  .app-header {
+    margin-bottom: var(--space-5);
+  }
+
+  .app-header h1 {
+    font-size: 1.75rem;
   }
 
   .recipe-grid {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: var(--space-3);
+  }
+
+  .page-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+  }
+
+  .toolbar-actions button,
+  .page-toolbar > button {
+    flex: 1;
+  }
+
+  .calendar-week {
+    grid-template-columns: 70px repeat(7, 102px);
+    margin-right: calc(var(--space-4) * -1);
+    border-right: 0;
+  }
+
+  .calendar-meal-label,
+  .calendar-cell {
+    min-height: 82px;
+  }
+
+  .calendar-day-header {
+    min-height: 54px;
+  }
+
+  .calendar-empty-meal select {
+    min-height: 32px;
   }
 }
 

@@ -33,3 +33,12 @@ export interface RecipeFormData {
   tools?: string[];
   imageUrl?: string;
 }
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner';
+
+export interface MealPlan {
+  id: string;
+  date: string;
+  mealType: MealType;
+  recipeId: string;
+}

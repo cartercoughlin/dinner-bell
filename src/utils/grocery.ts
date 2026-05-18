@@ -1,0 +1,110 @@
+import { Ingredient, Recipe } from '../types/recipe';
+
+type GroceryItem = {
+  key: string;
+  name: string;
+  amounts: string[];
+  recipes: string[];
+};
+
+export type GroceryCategory = {
+  name: string;
+  items: GroceryItem[];
+};
+
+const CATEGORY_ORDER = [
+  'Produce',
+  'Meat and Seafood',
+  'Dairy and Eggs',
+  'Bakery and Bread',
+  'Pasta and Grains',
+  'Canned and Jarred',
+  'Condiments and Sauces',
+  'Spices and Seasonings',
+  'Oils and Vinegars',
+  'Baking',
+  'Frozen',
+  'Beverages',
+  'Other',
+];
+
+const CATEGORIES: Record<string, string[]> = {
+  Produce: ['lettuce', 'tomato', 'onion', 'garlic', 'pepper', 'cilantro', 'parsley', 'basil', 'spinach', 'kale', 'carrot', 'celery', 'cucumber', 'zucchini', 'potato', 'corn', 'mushroom', 'avocado', 'lemon', 'lime', 'apple', 'banana', 'berry', 'ginger', 'shallot'],
+  'Meat and Seafood': ['chicken', 'beef', 'pork', 'steak', 'turkey', 'lamb', 'bacon', 'sausage', 'salmon', 'shrimp', 'fish', 'tuna', 'cod', 'crab'],
+  'Dairy and Eggs': ['milk', 'cream', 'butter', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'feta', 'ricotta', 'sour cream', 'yogurt', 'egg'],
+  'Bakery and Bread': ['bread', 'bun', 'roll', 'tortilla', 'pita', 'naan', 'baguette', 'bagel', 'breadcrumb', 'panko'],
+  'Pasta and Grains': ['pasta', 'spaghetti', 'penne', 'rice', 'quinoa', 'couscous', 'oat', 'orzo', 'noodle'],
+  'Canned and Jarred': ['canned', 'tomato paste', 'tomato sauce', 'beans', 'chickpeas', 'broth', 'stock', 'olives', 'capers', 'salsa'],
+  'Condiments and Sauces': ['ketchup', 'mustard', 'mayonnaise', 'mayo', 'soy sauce', 'hot sauce', 'barbecue', 'pesto', 'marinara', 'dressing', 'tahini', 'miso'],
+  'Spices and Seasonings': ['salt', 'pepper', 'cumin', 'paprika', 'chili powder', 'cinnamon', 'oregano', 'garlic powder', 'onion powder', 'seasoning', 'spice'],
+  'Oils and Vinegars': ['olive oil', 'vegetable oil', 'canola oil', 'sesame oil', 'vinegar', 'balsamic'],
+  Baking: ['flour', 'sugar', 'baking soda', 'baking powder', 'yeast', 'cornstarch', 'vanilla', 'cocoa', 'chocolate', 'honey', 'maple syrup'],
+  Frozen: ['frozen', 'ice cream'],
+  Beverages: ['water', 'juice', 'wine', 'beer', 'coffee', 'tea', 'soda'],
+};
+
+function ingredientLabel(ingredient: Ingredient) {
+  return [ingredient.amount, ingredient.unit].filter(Boolean).join(' ').trim();
+}
+
+function categoryFor(name: string) {
+  const lowerName = name.toLowerCase();
+  const matches = Object.entries(CATEGORIES)
+    .flatMap(([category, keywords]) =>
+      keywords
+        .filter((keyword) => lowerName.includes(keyword))
+        .map((keyword) => ({ category, length: keyword.length }))
+    )
+    .sort((a, b) => b.length - a.length);
+
+  return matches[0]?.category ?? 'Other';
+}
+
+export function buildGroceryCategories(recipes: Recipe[]): GroceryCategory[] {
+  const items = new Map<string, GroceryItem & { category: string; recipeSet: Set<string> }>();
+
+  recipes.forEach((recipe) => {
+    recipe.ingredients.forEach((ingredient) => {
+      const key = ingredient.name.trim().toLowerCase();
+      if (!key) return;
+
+      const amount = ingredientLabel(ingredient);
+      const existing = items.get(key);
+
+      if (existing) {
+        existing.recipeSet.add(recipe.title);
+        if (amount) existing.amounts.push(amount);
+        return;
+      }
+
+      items.set(key, {
+        key,
+        name: ingredient.name,
+        amounts: amount ? [amount] : [],
+        recipes: [],
+        recipeSet: new Set([recipe.title]),
+        category: categoryFor(ingredient.name),
+      });
+    });
+  });
+
+  const grouped = new Map<string, GroceryItem[]>();
+  items.forEach((item) => {
+    const categoryItems = grouped.get(item.category) ?? [];
+    categoryItems.push({
+      key: item.key,
+      name: item.name,
+      amounts: item.amounts,
+      recipes: Array.from(item.recipeSet).sort(),
+    });
+    grouped.set(item.category, categoryItems);
+  });
+
+  return CATEGORY_ORDER
+    .filter((category) => grouped.has(category))
+    .map((category) => ({
+      name: category,
+      items: (grouped.get(category) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+}
+

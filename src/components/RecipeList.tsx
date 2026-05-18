@@ -24,6 +24,9 @@ export function RecipeList() {
             onClick={() => navigate(`/recipe/${recipe.id}`)}
             style={{ cursor: 'pointer' }}
           >
+            {recipe.imageUrl && (
+              <img className="recipe-card-image" src={recipe.imageUrl} alt="" loading="lazy" />
+            )}
             <h3>{recipe.title}</h3>
             <p>{recipe.ingredients.length} ingredients</p>
             <p>{recipe.servings} servings</p>

@@ -138,9 +138,9 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
 
       <div style={{ marginBottom: '2rem' }}>
         <h2>Ingredients</h2>
-        <ul style={{ lineHeight: '1.8' }}>
+        <ul style={{ lineHeight: '1.8', paddingLeft: '1.5rem', marginTop: '0.75rem' }}>
           {recipe.ingredients.map((ingredient) => (
-            <li key={ingredient.id}>
+            <li key={ingredient.id} style={{ paddingLeft: '0.25rem', marginBottom: '0.5rem' }}>
               {ingredient.amount && <strong>{ingredient.amount} </strong>}
               {ingredient.unit && <span>{ingredient.unit} </span>}
               {ingredient.name}

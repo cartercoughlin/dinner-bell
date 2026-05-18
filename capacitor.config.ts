@@ -1,13 +1,13 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.dinnerbell.app',
+  appId: 'com.dinner-bell.app',
   appName: 'Dinner Bell',
   webDir: 'dist',
   plugins: {
     StatusBar: {
       style: 'Dark',
-      backgroundColor: '#242424',
+      backgroundColor: '#ffffff',
     },
     SplashScreen: {
       launchShowDuration: 1000,
