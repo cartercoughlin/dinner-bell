@@ -8,10 +8,18 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:all": "npm run dev:server & npm run dev",
     "build": "tsc -b && vite build",
+    "build:ios": "tsc -b && vite build && npx cap sync ios",
+    "cap:open": "npx cap open ios",
+    "cap:sync": "npx cap sync",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/core": "^7.6.5",
+    "@capacitor/ios": "^7.6.5",
+    "@capacitor/keyboard": "^7.0.6",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "@types/multer": "^2.0.0",
     "axios": "^1.13.2",
     "cheerio": "^1.1.2",
@@ -24,6 +32,7 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.5",
     "@eslint/js": "^9.17.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
