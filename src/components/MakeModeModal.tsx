@@ -1,118 +1,94 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Recipe } from '../types/recipe';
 import { matchIngredientsToSteps } from '../utils/matchIngredients';
 import { extractMinutes, formatTime } from '../utils/extractTime';
+import { useTimer } from '../contexts/TimerContext';
 
 interface Props {
   recipe: Recipe;
   onClose: () => void;
 }
 
-type TimerState = 'idle' | 'running' | 'paused' | 'done';
+function StepTimer({ suggestedMinutes }: { suggestedMinutes: number | null }) {
+  const { status, remaining, start, pause, resume, reset } = useTimer();
+  const [editMinutes, setEditMinutes] = useState<number>(suggestedMinutes ?? 1);
 
-function useStepTimer(suggestedMinutes: number | null) {
-  const totalSeconds = (suggestedMinutes ?? 0) * 60;
-  const [state, setState] = useState<TimerState>('idle');
-  const [remaining, setRemaining] = useState(totalSeconds);
-  const intervalRef = useRef<number | null>(null);
-
-  const clear = () => {
-    if (intervalRef.current !== null) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-
-  const start = useCallback(() => {
-    setState('running');
-    intervalRef.current = window.setInterval(() => {
-      setRemaining(prev => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current!);
-          intervalRef.current = null;
-          setState('done');
-          beep();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
-
-  const pause = () => {
-    clear();
-    setState('paused');
-  };
-
-  const resume = () => start();
-
-  const reset = useCallback(() => {
-    clear();
-    setState('idle');
-    setRemaining(totalSeconds);
-  }, [totalSeconds]);
-
-  // Reset when suggested time changes (step navigation)
+  // Sync edit field when step changes (only while idle)
   useEffect(() => {
-    clear();
-    setState('idle');
-    setRemaining(totalSeconds);
-    return clear;
-  }, [totalSeconds]);
+    if (status === 'idle' && suggestedMinutes !== null) setEditMinutes(suggestedMinutes);
+  }, [suggestedMinutes, status]);
 
-  return { state, remaining, start, pause, resume, reset };
-}
+  const hasActiveTimer = status !== 'idle';
 
-function beep() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.4, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.8);
-  } catch {
-    // Audio unavailable — silent fail
-  }
-}
+  const handleEditChange = (val: string) => {
+    const n = parseInt(val, 10);
+    if (!isNaN(n) && n >= 1 && n <= 999) setEditMinutes(n);
+  };
 
-function StepTimer({ minutes }: { minutes: number }) {
-  const { state, remaining, start, pause, resume, reset } = useStepTimer(minutes);
-
-  if (state === 'idle') {
+  // Idle: editable suggestion + Start (only when step has a suggestion OR a timer was set before)
+  if (!hasActiveTimer) {
+    if (suggestedMinutes === null) return null;
     return (
-      <button className="step-timer-btn" onClick={start} aria-label={`Start ${minutes}-minute timer`}>
+      <div className="step-timer-idle">
         <span aria-hidden="true">⏱️</span>
-        {minutes} min
-      </button>
-    );
-  }
-
-  if (state === 'done') {
-    return (
-      <div className="step-timer step-timer--done">
-        <span className="step-timer-display" aria-live="assertive">⏱️ Time&rsquo;s up!</span>
-        <button className="step-timer-action" onClick={reset}>Reset</button>
+        <input
+          type="number"
+          className="step-timer-input"
+          min={1}
+          max={999}
+          value={editMinutes}
+          onChange={e => handleEditChange(e.target.value)}
+          aria-label="Timer minutes"
+        />
+        <span className="step-timer-unit">min</span>
+        <button
+          className="step-timer-start-btn"
+          onClick={() => start(editMinutes * 60)}
+          aria-label={`Start ${editMinutes}-minute timer`}
+        >
+          Start
+        </button>
       </div>
     );
   }
 
+  // Done
+  if (status === 'done') {
+    return (
+      <div className="step-timer step-timer--done">
+        <span className="step-timer-display" aria-live="assertive">⏱️ Time&rsquo;s up!</span>
+        <button className="step-timer-action step-timer-action--cancel" onClick={reset}>Dismiss</button>
+        {suggestedMinutes !== null && (
+          <button className="step-timer-action" onClick={() => start(editMinutes * 60)}>
+            Restart {editMinutes}m
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Running or paused
   return (
-    <div className={`step-timer ${state === 'paused' ? 'step-timer--paused' : ''}`}>
+    <div className={`step-timer ${status === 'paused' ? 'step-timer--paused' : ''}`}>
       <span className="step-timer-display" aria-live="polite" aria-atomic="true">
         <span aria-hidden="true">⏱️</span> {formatTime(remaining)}
       </span>
-      {state === 'running' ? (
+      {status === 'running' ? (
         <button className="step-timer-action" onClick={pause} aria-label="Pause timer">Pause</button>
       ) : (
         <button className="step-timer-action" onClick={resume} aria-label="Resume timer">Resume</button>
       )}
-      <button className="step-timer-action step-timer-action--reset" onClick={reset} aria-label="Reset timer">Reset</button>
+      <button className="step-timer-action step-timer-action--cancel" onClick={reset} aria-label="Cancel timer">Cancel</button>
+      {suggestedMinutes !== null && suggestedMinutes !== Math.round(remaining / 60 + /* rough */ 0) && (
+        <button
+          className="step-timer-action step-timer-action--replace"
+          onClick={() => start(editMinutes * 60)}
+          aria-label={`Start new ${editMinutes}-minute timer`}
+        >
+          ↺ {editMinutes}m
+        </button>
+      )}
     </div>
   );
 }
@@ -196,9 +172,7 @@ export function MakeModeModal({ recipe, onClose }: Props) {
         <div className="make-body">
           <p className="make-step-text">{recipe.directions[step]}</p>
 
-          {suggestedMinutes !== null && (
-            <StepTimer key={step} minutes={suggestedMinutes} />
-          )}
+          <StepTimer suggestedMinutes={suggestedMinutes} />
 
           {currentIngredients.length > 0 && (
             <div className="make-ingredients-section">
