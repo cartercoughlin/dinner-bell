@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load recipe_extras %}
+
+{% block title %}Meal Calendar - Dinner Bell{% endblock %}
+
+{% block content %}
+<div class="calendar-header-bar">
+  <h2>Meal Calendar</h2>
+  <div class="calendar-nav">
+    <a href="?start={{ prev_week }}" class="btn btn-secondary btn-sm">&larr;</a>
+    <span class="calendar-range">{{ start_date|date:"M j" }} &ndash; {{ end_date|date:"M j, Y" }}</span>
+    <a href="?start={{ next_week }}" class="btn btn-secondary btn-sm">&rarr;</a>
+  </div>
+</div>
+
+<div class="calendar-actions">
+  <a href="{% url 'grocery_list' %}?start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}" class="btn btn-success btn-sm">
+    Grocery List for This Week
+  </a>
+</div>
+
+<div class="calendar-grid">
+  {% for day in days %}
+  <div class="calendar-day {% if day.date == today %}calendar-today{% endif %}">
+    <div class="calendar-day-header">
+      <span class="calendar-day-name">{{ day.date|date:"D" }}</span>
+      <span class="calendar-day-date">{{ day.date|date:"M j" }}</span>
+    </div>
+    <div class="calendar-meals">
+      {% for meal_type in "breakfast,lunch,dinner"|split %}
+      <div class="calendar-meal">
+        <span class="meal-label">{{ meal_type|title }}</span>
+        {% with meal=day|get_meal:meal_type %}
+        {% if meal %}
+        <div class="meal-assigned">
+          <a href="{% url 'recipe_detail' meal.recipe.pk %}" class="meal-recipe-link">{{ meal.recipe.title }}</a>
+          <button type="button" class="meal-remove" data-date="{{ day.date|date:'Y-m-d' }}" data-meal="{{ meal_type }}">&times;</button>
+        </div>
+        {% else %}
+        <div class="meal-empty">
+          <select class="meal-select" data-date="{{ day.date|date:'Y-m-d' }}" data-meal="{{ meal_type }}">
+            <option value="">+ Add</option>
+            {% for recipe in recipes %}
+            <option value="{{ recipe.pk }}">{{ recipe.title }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="meal-random-btn" data-date="{{ day.date|date:'Y-m-d' }}" data-meal="{{ meal_type }}" title="Random recipe">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="22" height="22" rx="4"/><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </button>
+        </div>
+        {% endif %}
+        {% endwith %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.meal-select').forEach(function(select) {
+    select.addEventListener('change', function() {
+      var recipeId = this.value;
+      if (!recipeId) return;
+      this.disabled = true;
+      apiMealPlan('add', {
+        recipe_id: parseInt(recipeId),
+        date: this.dataset.date,
+        meal_type: this.dataset.meal
+      });
+    });
+  });
+
+  document.querySelectorAll('.meal-remove').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      this.disabled = true;
+      apiMealPlan('remove', {
+        date: this.dataset.date,
+        meal_type: this.dataset.meal
+      });
+    });
+  });
+
+  document.querySelectorAll('.meal-random-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      this.disabled = true;
+      apiMealPlan('random', {
+        date: this.dataset.date,
+        meal_type: this.dataset.meal
+      });
+    });
+  });
+
+  function apiMealPlan(action, data) {
+    data.action = action;
+    fetch('/api/meal-plan/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.ok) location.reload();
+      else alert(res.error || 'Failed');
+    })
+    .catch(function(err) { alert('Error: ' + err.message); });
+  }
+});
+</script>
+{% endblock %}

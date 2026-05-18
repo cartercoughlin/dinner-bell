@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if is_edit %}Edit {{ recipe.title }}{% else %}New Recipe{% endif %} - Dinner Bell{% endblock %}
+
+{% block content %}
+<h2>{% if is_edit %}Edit Recipe{% else %}New Recipe{% endif %}</h2>
+
+<!-- URL Import Section -->
+<div class="import-section import-section--url">
+  <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 14px; font-weight: 600;">Import from URL</h3>
+  <p style="margin-bottom: 8px; color: #8b949e; font-size: 13px;">
+    Paste a recipe URL to automatically fill in the details
+  </p>
+  <div style="display: flex; gap: 8px; align-items: flex-start;">
+    <div style="flex: 1;">
+      <input type="url" id="import-url" placeholder="https://example.com/recipe"
+             class="form-input" style="width: 100%;">
+    </div>
+    <button type="button" id="import-url-btn" class="btn btn-primary" style="white-space: nowrap;">
+      Import
+    </button>
+  </div>
+  <p id="import-url-error" class="error-text" style="display: none;"></p>
+  <p id="import-url-loading" style="display: none; color: #8b949e; font-size: 13px; margin-top: 4px;">
+    Importing recipe...
+  </p>
+</div>
+
+<!-- Image Import Section -->
+<div class="import-section import-section--image">
+  <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 14px; font-weight: 600;">Import from Photos</h3>
+  <p style="margin-bottom: 8px; color: #8b949e; font-size: 13px;">
+    Upload photos of a printed recipe or cookbook page
+  </p>
+  <input type="file" id="image-upload" multiple accept="image/*" class="form-input">
+  <p id="image-loading" style="display: none; color: #8b949e; font-size: 13px; margin-top: 4px;">
+    Scanning images...
+  </p>
+  <p id="image-error" class="error-text" style="display: none;"></p>
+</div>
+
+<form method="post" id="recipe-form" style="max-width: 800px;">
+  {% csrf_token %}
+
+  <!-- Title -->
+  <div class="form-group">
+    <label for="id_title" class="form-label">Recipe Title *</label>
+    {{ form.title }}
+    {% if form.title.errors %}<p class="error-text">{{ form.title.errors.0 }}</p>{% endif %}
+  </div>
+
+  <!-- Servings -->
+  <div class="form-group">
+    <label for="id_servings" class="form-label">Servings</label>
+    {{ form.servings }}
+  </div>
+
+  <!-- Prep/Cook Time -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;" class="form-group">
+    <div>
+      <label for="id_prep_time" class="form-label">Prep Time (minutes)</label>
+      {{ form.prep_time }}
+    </div>
+    <div>
+      <label for="id_cook_time" class="form-label">Cook Time (minutes)</label>
+      {{ form.cook_time }}
+    </div>
+  </div>
+
+  <!-- Ingredients -->
+  <div class="form-group">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <label class="form-label" style="margin-bottom: 0;">Ingredients *</label>
+      <button type="button" id="add-ingredient-btn" class="btn btn-primary" style="font-size: 0.875rem; padding: 0.25rem 0.75rem;">
+        + Add Ingredient
+      </button>
+    </div>
+
+    <!-- Bulk Add -->
+    <div class="bulk-section">
+      <label for="bulk-ingredients" style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem; color: #666;">
+        Quickly add multiple ingredients (one per line)
+      </label>
+      <div style="display: flex; gap: 0.5rem;">
+        <textarea id="bulk-ingredients" rows="3"
+                  placeholder="e.g.&#10;1 cup flour&#10;2 tbsp sugar&#10;1 tsp salt"
+                  style="flex: 1; padding: 0.5rem; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; font-size: 0.875rem;"></textarea>
+        <button type="button" id="bulk-add-btn" class="btn btn-success" style="align-self: flex-end; white-space: nowrap;">
+          Add All
+        </button>
+      </div>
+    </div>
+
+    {{ formset.management_form }}
+    <div id="ingredient-list">
+      {% for ing_form in formset %}
+      <div class="ingredient-row" data-index="{{ forloop.counter0 }}">
+        <input type="hidden" name="ingredients-{{ forloop.counter0 }}-id" value="{{ ing_form.instance.pk|default_if_none:'' }}" id="id_ingredients-{{ forloop.counter0 }}-id">
+        <input type="text" name="ingredients-{{ forloop.counter0 }}-name" value="{{ ing_form.instance.name|default:'' }}" placeholder="Ingredient name" class="form-input">
+        <input type="text" name="ingredients-{{ forloop.counter0 }}-amount" value="{{ ing_form.instance.amount|default:'' }}" placeholder="Amount" class="form-input">
+        <input type="text" name="ingredients-{{ forloop.counter0 }}-unit" value="{{ ing_form.instance.unit|default:'' }}" placeholder="Unit" class="form-input">
+        <input type="hidden" name="ingredients-{{ forloop.counter0 }}-order" value="{{ forloop.counter0 }}" id="id_ingredients-{{ forloop.counter0 }}-order">
+        <input type="hidden" name="ingredients-{{ forloop.counter0 }}-recipe" value="{{ form.instance.pk|default_if_none:'' }}">
+        <button type="button" class="btn btn-danger remove-ingredient" style="padding: 0.5rem 0.75rem;">&times;</button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Directions -->
+  <div class="form-group">
+    <label for="id_directions_text" class="form-label">Directions * (one step per line)</label>
+    {{ form.directions_text }}
+    {% if form.directions_text.errors %}<p class="error-text">{{ form.directions_text.errors.0 }}</p>{% endif %}
+  </div>
+
+  <!-- Tags -->
+  <div class="form-group">
+    <label for="id_tags_text" class="form-label">Tags (comma-separated)</label>
+    {{ form.tags_text }}
+  </div>
+
+  <!-- Tools -->
+  <div class="form-group">
+    <label for="id_tools_text" class="form-label">Tools/Equipment (comma-separated)</label>
+    {{ form.tools_text }}
+  </div>
+
+  <!-- Source URL -->
+  <div class="form-group">
+    <label for="id_source_url" class="form-label">Source URL</label>
+    {{ form.source_url }}
+  </div>
+
+  <!-- Image URL -->
+  <div class="form-group">
+    <label for="id_image_url" class="form-label">Image URL</label>
+    {{ form.image_url }}
+  </div>
+
+  <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+    <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem;">Save Recipe</button>
+    <a href="{% if is_edit %}{% url 'recipe_detail' recipe.pk %}{% else %}{% url 'recipe_list' %}{% endif %}"
+       class="btn btn-secondary" style="padding: 0.75rem 2rem;">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/recipe_form.js' %}"></script>
+{% endblock %}

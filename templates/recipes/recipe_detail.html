@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ recipe.title }} - Dinner Bell{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="{% url 'recipe_list' %}" class="btn btn-secondary" style="margin-bottom: 1rem; display: inline-block;">
+      &larr; Back to Recipes
+    </a>
+  </div>
+
+  {% if recipe.image_url %}
+  <div style="margin-bottom: 1.5rem;">
+    <img src="{{ recipe.image_url }}" alt="{{ recipe.title }}"
+         style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px;">
+  </div>
+  {% endif %}
+
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+    <h1 style="margin: 0;">{{ recipe.title }}</h1>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="{% url 'recipe_edit' recipe.pk %}" class="btn btn-primary">Edit</a>
+      <a href="{% url 'recipe_delete' recipe.pk %}" class="btn btn-danger">Delete</a>
+    </div>
+  </div>
+
+  <div class="metadata-row">
+    <div><strong>Servings:</strong> {{ recipe.servings }}</div>
+    {% if recipe.prep_time %}
+    <div><strong>Prep:</strong> {{ recipe.prep_time }} mins</div>
+    {% endif %}
+    {% if recipe.cook_time %}
+    <div><strong>Cook:</strong> {{ recipe.cook_time }} mins</div>
+    {% endif %}
+  </div>
+
+  {% if recipe.tags %}
+  <div style="margin-bottom: 1.5rem;">
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      {% for tag in recipe.tags %}
+      <span class="tag-pill">{{ tag }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if recipe.tools %}
+  <div style="margin-bottom: 1.5rem;">
+    <h3>Equipment Needed</h3>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      {% for tool in recipe.tools %}
+      <span class="tool-pill">{{ tool }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div style="margin-bottom: 2rem;">
+    <h2>Ingredients</h2>
+    <ul style="line-height: 1.8;">
+      {% for ingredient in recipe.ingredients.all %}
+      <li>
+        {% if ingredient.amount %}<strong>{{ ingredient.amount }} </strong>{% endif %}
+        {% if ingredient.unit %}<span>{{ ingredient.unit }} </span>{% endif %}
+        {{ ingredient.name }}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div style="margin-bottom: 2rem;">
+    <h2>Directions</h2>
+    <ol style="line-height: 1.8; padding-left: 1.5rem;">
+      {% for step in recipe.directions %}
+      <li style="margin-bottom: 0.75rem;">{{ step }}</li>
+      {% endfor %}
+    </ol>
+  </div>
+
+  {% if recipe.source_url %}
+  <div style="margin-bottom: 1.5rem;">
+    <strong>Source: </strong>
+    <a href="{{ recipe.source_url }}" target="_blank" rel="noopener noreferrer" style="color: #58a6ff;">
+      {{ recipe.source_url }}
+    </a>
+  </div>
+  {% endif %}
+
+  {% if recipe.last_made %}
+  <div style="color: #666; font-size: 0.875rem;">
+    <strong>Last Made:</strong> {{ recipe.last_made|date:"N j, Y" }}
+  </div>
+  {% endif %}
+
+  <div style="color: #999; font-size: 0.75rem; margin-top: 2rem;">
+    Added {{ recipe.date_added|date:"N j, Y" }}
+  </div>
+</div>
+{% endblock %}

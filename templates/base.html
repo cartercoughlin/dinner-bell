@@ -1,0 +1,37 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Dinner Bell{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+  <div id="app">
+    <div class="app">
+      <header>
+        <h1><a href="{% url 'recipe_list' %}">Dinner Bell</a></h1>
+        <nav class="main-nav">
+          <a href="{% url 'recipe_list' %}">Recipes</a>
+          <a href="{% url 'calendar' %}">Calendar</a>
+          <a href="{% url 'grocery_list' %}">Grocery List</a>
+          <a href="{% url 'random_recipe' %}">Surprise Me</a>
+        </nav>
+      </header>
+      {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+        <div class="message message-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <main>
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

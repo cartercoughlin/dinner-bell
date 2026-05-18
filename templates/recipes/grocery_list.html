@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Grocery List - Dinner Bell{% endblock %}
+
+{% block content %}
+<div class="grocery-page">
+  <div class="grocery-toolbar">
+    <h2>Grocery List</h2>
+    <div class="grocery-toolbar-actions">
+      <button type="button" id="toggle-sources" class="btn btn-secondary btn-sm">New List</button>
+      <button type="button" id="clear-checked-btn" class="btn btn-secondary btn-sm">Reset</button>
+      <button type="button" id="copy-list-btn" class="btn btn-secondary btn-sm">Copy</button>
+    </div>
+  </div>
+
+  <div id="grocery-sources" class="grocery-sources" style="display: none;">
+    <div class="grocery-source-section">
+      <h4>From Calendar</h4>
+      <a href="{% url 'grocery_list' %}?start={{ week_start }}&end={{ week_end }}" class="btn btn-primary btn-sm">
+        This Week's Meals
+      </a>
+    </div>
+    <div class="grocery-source-section">
+      <h4>From Recipes</h4>
+      <form method="get" class="grocery-recipe-form">
+        <select name="recipe" multiple class="form-input grocery-multi-select">
+          {% for recipe in all_recipes %}
+          <option value="{{ recipe.pk }}" {% if recipe in selected_recipes %}selected{% endif %}>{{ recipe.title }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 8px;">Generate</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="grocery-list-root">
+  {% if categories %}
+  <div class="grocery-list-container">
+    {% for category, items in categories %}
+    <div class="grocery-category">
+      <div class="grocery-category-header">{{ category }}</div>
+      <ul class="grocery-list">
+        {% for item in items %}
+        <li class="grocery-item" data-key="{{ item.name|lower }}">
+          <label class="grocery-check">
+            <input type="checkbox">
+            <span class="grocery-name">{{ item.name }}</span>
+            {% if item.amounts %}
+            <span class="grocery-amount">{{ item.amounts|join:", " }}</span>
+            {% endif %}
+          </label>
+          <span class="grocery-recipes">{{ item.recipes|join:", " }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  </div>
+
+  <div id="grocery-empty" class="empty-state" style="display: none;">
+    <p>No grocery list yet. Click "New List" to generate one.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var CHECKED_KEY = 'dinnerbell_grocery_checked';
+  var LIST_KEY = 'dinnerbell_grocery_list';
+  var root = document.getElementById('grocery-list-root');
+  var sources = document.getElementById('grocery-sources');
+  var emptyMsg = document.getElementById('grocery-empty');
+  var hasServerData = root.querySelector('.grocery-list-container') !== null;
+
+  // Cache or restore — clear stale cache if it contains old toolbar markup
+  if (hasServerData) {
+    localStorage.setItem(LIST_KEY, root.innerHTML);
+  } else {
+    var cached = localStorage.getItem(LIST_KEY);
+    if (cached) {
+      // Discard stale cache from old layout that had toolbar inside root
+      if (cached.indexOf('grocery-toolbar') !== -1) {
+        localStorage.removeItem(LIST_KEY);
+      } else {
+        root.innerHTML = cached;
+        hasServerData = true;
+      }
+    }
+  }
+
+  // Show empty state or sources if no data at all
+  if (!root.querySelector('.grocery-list-container')) {
+    emptyMsg.style.display = '';
+    sources.style.display = '';
+  }
+
+  // Toggle sources panel
+  document.getElementById('toggle-sources').addEventListener('click', function() {
+    var showing = sources.style.display !== 'none';
+    sources.style.display = showing ? 'none' : '';
+  });
+
+  bindGroceryList();
+
+  function bindGroceryList() {
+    var state = loadChecked();
+
+    document.querySelectorAll('.grocery-item').forEach(function(item) {
+      var key = item.dataset.key;
+      var cb = item.querySelector('input[type="checkbox"]');
+      if (state[key]) {
+        cb.checked = true;
+        item.classList.add('grocery-checked');
+      }
+    });
+
+    document.querySelectorAll('.grocery-check input').forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var item = this.closest('.grocery-item');
+        var key = item.dataset.key;
+        item.classList.toggle('grocery-checked', this.checked);
+        var s = loadChecked();
+        if (this.checked) { s[key] = true; } else { delete s[key]; }
+        saveChecked(s);
+      });
+    });
+
+    var clearBtn = document.getElementById('clear-checked-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() {
+        localStorage.removeItem(CHECKED_KEY);
+        document.querySelectorAll('.grocery-item').forEach(function(item) {
+          item.classList.remove('grocery-checked');
+          item.querySelector('input[type="checkbox"]').checked = false;
+        });
+      });
+    }
+
+    var copyBtn = document.getElementById('copy-list-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function() {
+        var categories = document.querySelectorAll('.grocery-category');
+        var lines = [];
+        categories.forEach(function(cat) {
+          if (lines.length) lines.push('');
+          var header = cat.querySelector('.grocery-category-header').textContent;
+          lines.push(header + ':');
+          cat.querySelectorAll('.grocery-item').forEach(function(item) {
+            var name = item.querySelector('.grocery-name').textContent;
+            var amount = item.querySelector('.grocery-amount');
+            var line = '\u2610 ' + name;
+            if (amount) line += ' (' + amount.textContent.trim() + ')';
+            lines.push(line);
+          });
+        });
+        navigator.clipboard.writeText(lines.join('\n').trim()).then(function() {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(function() { copyBtn.textContent = 'Copy'; }, 1500);
+        });
+      });
+    }
+  }
+
+  function loadChecked() {
+    try { return JSON.parse(localStorage.getItem(CHECKED_KEY)) || {}; }
+    catch(e) { return {}; }
+  }
+
+  function saveChecked(state) {
+    localStorage.setItem(CHECKED_KEY, JSON.stringify(state));
+  }
+});
+</script>
+{% endblock %}

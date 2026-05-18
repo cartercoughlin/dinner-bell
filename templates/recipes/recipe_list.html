@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load recipe_extras %}
+
+{% block title %}My Recipes - Dinner Bell{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+  <h2>My Recipes</h2>
+  <a href="{% url 'recipe_create' %}" class="btn btn-primary">+ Add Recipe</a>
+</div>
+
+<!-- Search & Filters -->
+<div class="search-filters">
+  <form method="get" class="search-form">
+    <div class="search-bar">
+      <input type="text" name="q" value="{{ query }}" placeholder="Search by title, ingredient, or website..." class="form-input search-input">
+      <button type="submit" class="btn btn-primary">Search</button>
+      {% if query or tag_filter or tool_filter or ingredient_filter %}
+      <a href="{% url 'recipe_list' %}" class="btn btn-secondary">Clear</a>
+      {% endif %}
+    </div>
+    <div class="filter-row">
+      <select name="tag" class="form-input filter-select" onchange="this.form.submit()">
+        <option value="">All Categories</option>
+        {% for tag in all_tags %}
+        <option value="{{ tag }}" {% if tag == tag_filter %}selected{% endif %}>{{ tag }}</option>
+        {% endfor %}
+      </select>
+      <select name="tool" class="form-input filter-select" onchange="this.form.submit()">
+        <option value="">All Equipment</option>
+        {% for tool in all_tools %}
+        <option value="{{ tool }}" {% if tool == tool_filter %}selected{% endif %}>{{ tool }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="ingredient" value="{{ ingredient_filter }}" placeholder="Filter by ingredient..." class="form-input filter-select">
+      {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+    </div>
+  </form>
+</div>
+
+{% if recipes %}
+<div class="recipe-grid">
+  {% for recipe in recipes %}
+  <a href="{% url 'recipe_detail' recipe.pk %}" class="recipe-card-link">
+    <div class="recipe-card">
+      {% if recipe.image_url %}
+      <div class="recipe-card-image">
+        <img src="{{ recipe.image_url }}" alt="{{ recipe.title }}" loading="lazy">
+      </div>
+      {% endif %}
+      <h3>{{ recipe.title }}</h3>
+      <p>{{ recipe|ingredient_count }} ingredients</p>
+      <p>{{ recipe.servings }} servings</p>
+      {% if recipe.tags %}
+      <div class="tags">
+        {% for tag in recipe.tags %}
+        <span class="tag">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  {% if query or tag_filter or tool_filter or ingredient_filter %}
+  <h2>No matching recipes</h2>
+  <p>Try adjusting your search or filters.</p>
+  {% else %}
+  <h2>No recipes yet</h2>
+  <p>Add your first recipe to get started!</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
