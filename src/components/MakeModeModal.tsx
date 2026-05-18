@@ -1,11 +1,120 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Recipe } from '../types/recipe';
 import { matchIngredientsToSteps } from '../utils/matchIngredients';
+import { extractMinutes, formatTime } from '../utils/extractTime';
 
 interface Props {
   recipe: Recipe;
   onClose: () => void;
+}
+
+type TimerState = 'idle' | 'running' | 'paused' | 'done';
+
+function useStepTimer(suggestedMinutes: number | null) {
+  const totalSeconds = (suggestedMinutes ?? 0) * 60;
+  const [state, setState] = useState<TimerState>('idle');
+  const [remaining, setRemaining] = useState(totalSeconds);
+  const intervalRef = useRef<number | null>(null);
+
+  const clear = () => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const start = useCallback(() => {
+    setState('running');
+    intervalRef.current = window.setInterval(() => {
+      setRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+          setState('done');
+          beep();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  const pause = () => {
+    clear();
+    setState('paused');
+  };
+
+  const resume = () => start();
+
+  const reset = useCallback(() => {
+    clear();
+    setState('idle');
+    setRemaining(totalSeconds);
+  }, [totalSeconds]);
+
+  // Reset when suggested time changes (step navigation)
+  useEffect(() => {
+    clear();
+    setState('idle');
+    setRemaining(totalSeconds);
+    return clear;
+  }, [totalSeconds]);
+
+  return { state, remaining, start, pause, resume, reset };
+}
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.8);
+  } catch {
+    // Audio unavailable — silent fail
+  }
+}
+
+function StepTimer({ minutes }: { minutes: number }) {
+  const { state, remaining, start, pause, resume, reset } = useStepTimer(minutes);
+
+  if (state === 'idle') {
+    return (
+      <button className="step-timer-btn" onClick={start} aria-label={`Start ${minutes}-minute timer`}>
+        <span aria-hidden="true">⏱️</span>
+        {minutes} min
+      </button>
+    );
+  }
+
+  if (state === 'done') {
+    return (
+      <div className="step-timer step-timer--done">
+        <span className="step-timer-display" aria-live="assertive">⏱️ Time&rsquo;s up!</span>
+        <button className="step-timer-action" onClick={reset}>Reset</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`step-timer ${state === 'paused' ? 'step-timer--paused' : ''}`}>
+      <span className="step-timer-display" aria-live="polite" aria-atomic="true">
+        <span aria-hidden="true">⏱️</span> {formatTime(remaining)}
+      </span>
+      {state === 'running' ? (
+        <button className="step-timer-action" onClick={pause} aria-label="Pause timer">Pause</button>
+      ) : (
+        <button className="step-timer-action" onClick={resume} aria-label="Resume timer">Resume</button>
+      )}
+      <button className="step-timer-action step-timer-action--reset" onClick={reset} aria-label="Reset timer">Reset</button>
+    </div>
+  );
 }
 
 export function MakeModeModal({ recipe, onClose }: Props) {
@@ -13,6 +122,7 @@ export function MakeModeModal({ recipe, onClose }: Props) {
   const total = recipe.directions.length;
   const stepIngredients = matchIngredientsToSteps(recipe.ingredients, recipe.directions);
   const currentIngredients = stepIngredients[step] ?? [];
+  const suggestedMinutes = extractMinutes(recipe.directions[step] ?? '');
 
   const touchStartX = useRef<number | null>(null);
 
@@ -52,7 +162,7 @@ export function MakeModeModal({ recipe, onClose }: Props) {
   const isLast = step === total - 1;
 
   const ingredientLabel = (amount: string, unit: string) =>
-    [amount, unit].filter(Boolean).join(' ');
+    [amount, unit].filter(Boolean).join(' ');
 
   return createPortal(
     <div className="make-overlay" onClick={onClose} aria-modal="true" role="dialog">
@@ -85,6 +195,10 @@ export function MakeModeModal({ recipe, onClose }: Props) {
         {/* Body */}
         <div className="make-body">
           <p className="make-step-text">{recipe.directions[step]}</p>
+
+          {suggestedMinutes !== null && (
+            <StepTimer key={step} minutes={suggestedMinutes} />
+          )}
 
           {currentIngredients.length > 0 && (
             <div className="make-ingredients-section">
