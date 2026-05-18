@@ -49,8 +49,10 @@ function RecipeFormPage() {
   };
 
   return (
-    <div>
-      <h1>{isEditMode ? 'Edit Recipe' : 'Add New Recipe'}</h1>
+    <div className="recipe-form-page stack">
+      <div className="page-toolbar">
+        <h1>{isEditMode ? 'Edit Recipe' : 'Add New Recipe'}</h1>
+      </div>
       <RecipeForm
         initialData={initialData}
         onSubmit={handleSubmit}

@@ -237,22 +237,16 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
     onSubmit(formData);
   };
 
+  const hasOptionalDetails = Boolean(tags || tools || sourceUrl || imageUrl);
+
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: '800px' }}>
-      {/* URL Import Section */}
-      <div style={{
-        marginBottom: '2rem',
-        padding: '1.5rem',
-        backgroundColor: 'rgba(100, 108, 255, 0.1)',
-        borderRadius: '8px',
-        border: '2px dashed rgba(100, 108, 255, 0.3)'
-      }}>
-        <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.125rem' }}>
-          Import from URL
-        </h3>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1 }}>
+    <form className="recipe-form" onSubmit={handleSubmit}>
+      <section className="form-section recipe-import-panel">
+        <div className="recipe-import-url">
+          <label htmlFor="importUrl">Import from URL</label>
+          <div className="form-inline">
             <input
+              id="importUrl"
               type="url"
               placeholder="https://example.com/recipe"
               value={importUrl}
@@ -271,434 +265,216 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
                 }
               }}
               disabled={isImporting}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                fontSize: '1rem',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-                backgroundColor: isImporting ? '#f5f5f5' : 'white',
-              }}
+            />
+            <button className="primary-btn" type="button" onClick={() => handleImportFromUrl()} disabled={isImporting}>
+              {isImporting ? 'Importing' : 'Import'}
+            </button>
+          </div>
+          {importError && <p className="form-error">{importError}</p>}
+        </div>
+
+        <div className="recipe-import-photo">
+          <span>Import from Photos</span>
+          <label className={`secondary-btn file-import-btn ${isImportingImages ? 'is-disabled' : ''}`}>
+            Choose Photos
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageUpload}
+              disabled={isImportingImages}
+            />
+          </label>
+          {isImportingImages && <p className="form-note">Scanning images...</p>}
+          {imageImportError && <p className="form-error">{imageImportError}</p>}
+        </div>
+      </section>
+
+      <section className="form-section">
+        <div className="form-grid form-grid--title">
+          <div className="form-field">
+            <label htmlFor="title">Recipe Title *</label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              aria-invalid={Boolean(errors.title)}
+            />
+            {errors.title && <p className="form-error">{errors.title}</p>}
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="servings">Servings</label>
+            <input
+              id="servings"
+              type="number"
+              min="1"
+              value={servings}
+              onChange={(e) => setServings(parseInt(e.target.value) || 1)}
             />
           </div>
-          <button
-            type="button"
-            onClick={() => handleImportFromUrl()}
-            disabled={isImporting}
-            style={{
-              padding: '0.75rem 1.5rem',
-              fontSize: '1rem',
-              backgroundColor: isImporting ? '#ccc' : '#646cff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: isImporting ? 'not-allowed' : 'pointer',
-              fontWeight: '500',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {isImporting ? 'Importing...' : 'Import'}
-          </button>
         </div>
-        {importError && (
-          <p style={{ color: '#f44336', fontSize: '0.875rem', marginTop: '0.5rem', marginBottom: 0 }}>
-            {importError}
-          </p>
-        )}
-      </div>
 
-      {/* Image Import Section */}
-      <div style={{
-        marginBottom: '2rem',
-        padding: '1.5rem',
-        backgroundColor: 'rgba(76, 175, 80, 0.1)',
-        borderRadius: '8px',
-        border: '2px dashed rgba(76, 175, 80, 0.3)'
-      }}>
-        <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.125rem', color: '#2e7d32' }}>
-          Import from Photos
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleImageUpload}
-            disabled={isImportingImages}
-            style={{
-              width: '100%',
-              padding: '0.5rem',
-              fontSize: '1rem',
-              backgroundColor: 'white',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-            }}
-          />
-          {isImportingImages && (
-            <p style={{ color: '#2e7d32', fontSize: '0.875rem', margin: '0.5rem 0 0 0', fontWeight: '500' }}>
-              Scanning images... This can take a few seconds.
-            </p>
-          )}
-          {imageImportError && (
-            <p style={{ color: '#f44336', fontSize: '0.875rem', margin: '0.5rem 0 0 0' }}>
-              {imageImportError}
-            </p>
-          )}
+        <div className="form-grid">
+          <div className="form-field">
+            <label htmlFor="prepTime">Prep Time</label>
+            <input
+              id="prepTime"
+              type="number"
+              min="0"
+              placeholder="15"
+              value={prepTime}
+              onChange={(e) => setPrepTime(e.target.value)}
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="cookTime">Cook Time</label>
+            <input
+              id="cookTime"
+              type="number"
+              min="0"
+              placeholder="30"
+              value={cookTime}
+              onChange={(e) => setCookTime(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="title" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-          Recipe Title *
-        </label>
-        <input
-          id="title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            fontSize: '1rem',
-            border: errors.title ? '2px solid #f44336' : '1px solid #ccc',
-            borderRadius: '4px',
-          }}
-        />
-        {errors.title && <p style={{ color: '#f44336', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.title}</p>}
-      </div>
-
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="servings" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-          Servings
-        </label>
-        <input
-          id="servings"
-          type="number"
-          min="1"
-          value={servings}
-          onChange={(e) => setServings(parseInt(e.target.value) || 1)}
-          style={{
-            width: '100px',
-            padding: '0.5rem',
-            fontSize: '1rem',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-          }}
-        />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div>
-          <label htmlFor="prepTime" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-            Prep Time (minutes)
-          </label>
-          <input
-            id="prepTime"
-            type="number"
-            min="0"
-            placeholder="e.g., 15"
-            value={prepTime}
-            onChange={(e) => setPrepTime(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.5rem',
-              fontSize: '1rem',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-            }}
-          />
-        </div>
-        <div>
-          <label htmlFor="cookTime" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-            Cook Time (minutes)
-          </label>
-          <input
-            id="cookTime"
-            type="number"
-            min="0"
-            placeholder="e.g., 30"
-            value={cookTime}
-            onChange={(e) => setCookTime(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.5rem',
-              fontSize: '1rem',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-            }}
-          />
-        </div>
-      </div>
-
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-          <label style={{ fontWeight: '500' }}>Ingredients *</label>
-          <button
-            type="button"
-            onClick={addIngredient}
-            style={{
-              padding: '0.25rem 0.75rem',
-              fontSize: '0.875rem',
-              backgroundColor: '#646cff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            + Add Individual Ingredient
+      <section className="form-section">
+        <div className="form-section-header">
+          <label>Ingredients *</label>
+          <button className="secondary-btn compact-btn" type="button" onClick={addIngredient}>
+            Add Ingredient
           </button>
         </div>
 
-        {/* Bulk Add Section */}
-        <div style={{
-          marginBottom: '1rem',
-          padding: '1rem',
-          backgroundColor: '#f9f9f9',
-          borderRadius: '4px',
-          border: '1px solid #eee'
-        }}>
-          <label htmlFor="bulkIngredients" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
-            Quickly add multiple ingredients (one per line)
-          </label>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <details className="bulk-ingredients">
+          <summary>Paste ingredient list</summary>
+          <div className="bulk-ingredients-body">
             <textarea
               id="bulkIngredients"
               value={bulkIngredientsText}
               onChange={(e) => setBulkIngredientsText(e.target.value)}
-              placeholder="e.g.&#10;1 cup flour&#10;2 tbsp sugar&#10;1 tsp salt"
+              placeholder={'1 cup flour\n2 tbsp sugar\n1 tsp salt'}
               rows={3}
-              style={{
-                flex: 1,
-                padding: '0.5rem',
-                borderRadius: '4px',
-                border: '1px solid #ccc',
-                fontFamily: 'inherit',
-                fontSize: '0.875rem'
-              }}
             />
             <button
+              className="success-btn"
               type="button"
               onClick={handleBulkAddIngredients}
               disabled={isParsingIngredients || !bulkIngredientsText.trim()}
-              style={{
-                alignSelf: 'flex-end',
-                padding: '0.5rem 1rem',
-                fontSize: '0.875rem',
-                backgroundColor: isParsingIngredients ? '#ccc' : '#4caf50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: isParsingIngredients ? 'not-allowed' : 'pointer',
-                whiteSpace: 'nowrap'
-              }}
             >
-              {isParsingIngredients ? 'Parsing...' : 'Add All'}
+              {isParsingIngredients ? 'Parsing' : 'Add All'}
             </button>
+          </div>
+        </details>
+
+        {errors.ingredients && <p className="form-error">{errors.ingredients}</p>}
+
+        <div className="ingredient-list-editor">
+          {ingredients.map((ingredient) => (
+            <div className="ingredient-row" key={ingredient.id}>
+              <input
+                type="text"
+                placeholder="Ingredient"
+                value={ingredient.name}
+                onChange={(e) => updateIngredient(ingredient.id, 'name', e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Amount"
+                value={ingredient.amount}
+                onChange={(e) => updateIngredient(ingredient.id, 'amount', e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Unit"
+                value={ingredient.unit}
+                onChange={(e) => updateIngredient(ingredient.id, 'unit', e.target.value)}
+              />
+              <button
+                className="icon-remove-btn"
+                type="button"
+                onClick={() => removeIngredient(ingredient.id)}
+                disabled={ingredients.length === 1}
+                aria-label="Remove ingredient"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="form-section">
+        <div className="form-field">
+          <label htmlFor="directions">Directions *</label>
+          <textarea
+            id="directions"
+            value={directions}
+            onChange={(e) => setDirections(e.target.value)}
+            rows={7}
+            placeholder={'1. Preheat oven to 350°F\n2. Mix dry ingredients\n3. Add wet ingredients and stir'}
+            aria-invalid={Boolean(errors.directions)}
+          />
+          {errors.directions && <p className="form-error">{errors.directions}</p>}
+        </div>
+      </section>
+
+      <details className="form-section optional-details" open={hasOptionalDetails}>
+        <summary>More details</summary>
+        <div className="optional-details-body">
+          <div className="form-field">
+            <label htmlFor="tags">Tags</label>
+            <input
+              id="tags"
+              type="text"
+              placeholder="dinner, Italian, vegetarian"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+            />
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="tools">Tools/Equipment</label>
+            <input
+              id="tools"
+              type="text"
+              placeholder="oven, skillet, food processor"
+              value={tools}
+              onChange={(e) => setTools(e.target.value)}
+            />
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="sourceUrl">Source URL</label>
+            <input
+              id="sourceUrl"
+              type="url"
+              placeholder="https://..."
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+            />
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="imageUrl">Image URL</label>
+            <input
+              id="imageUrl"
+              type="url"
+              placeholder="https://..."
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+            />
           </div>
         </div>
+      </details>
 
-        {errors.ingredients && (
-          <p style={{ color: '#f44336', fontSize: '0.875rem', marginBottom: '0.5rem' }}>{errors.ingredients}</p>
-        )}
-        {ingredients.map((ingredient) => (
-          <div
-            key={ingredient.id}
-            style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.5rem' }}
-          >
-            <input
-              type="text"
-              placeholder="Ingredient name"
-              value={ingredient.name}
-              onChange={(e) => updateIngredient(ingredient.id, 'name', e.target.value)}
-              style={{
-                padding: '0.5rem',
-                fontSize: '1rem',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Amount"
-              value={ingredient.amount}
-              onChange={(e) => updateIngredient(ingredient.id, 'amount', e.target.value)}
-              style={{
-                padding: '0.5rem',
-                fontSize: '1rem',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Unit"
-              value={ingredient.unit}
-              onChange={(e) => updateIngredient(ingredient.id, 'unit', e.target.value)}
-              style={{
-                padding: '0.5rem',
-                fontSize: '1rem',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => removeIngredient(ingredient.id)}
-              disabled={ingredients.length === 1}
-              style={{
-                padding: '0.5rem 0.75rem',
-                fontSize: '1rem',
-                backgroundColor: ingredients.length === 1 ? '#ccc' : '#f44336',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: ingredients.length === 1 ? 'not-allowed' : 'pointer',
-              }}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="directions" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-          Directions * (one step per line)
-        </label>
-        <textarea
-          id="directions"
-          value={directions}
-          onChange={(e) => setDirections(e.target.value)}
-          rows={8}
-          placeholder="1. Preheat oven to 350°F&#10;2. Mix dry ingredients&#10;3. Add wet ingredients and stir..."
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            fontSize: '1rem',
-            border: errors.directions ? '2px solid #f44336' : '1px solid #ccc',
-            borderRadius: '4px',
-            fontFamily: 'inherit',
-            resize: 'vertical',
-          }}
-        />
-        {errors.directions && (
-          <p style={{ color: '#f44336', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.directions}</p>
-        )}
-      </div>
-
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="tags" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-          Tags (comma-separated)
-        </label>
-        <input
-          id="tags"
-          type="text"
-          placeholder="e.g., dinner, Italian, vegetarian"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            fontSize: '1rem',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-          }}
-        />
-      </div>
-
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="tools" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-          Tools/Equipment (comma-separated)
-        </label>
-        <input
-          id="tools"
-          type="text"
-          placeholder="e.g., oven, skillet, food processor"
-          value={tools}
-          onChange={(e) => setTools(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            fontSize: '1rem',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-          }}
-        />
-      </div>
-
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="sourceUrl" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-          Source URL
-        </label>
-        <input
-          id="sourceUrl"
-          type="url"
-          placeholder="https://..."
-          value={sourceUrl}
-          onChange={(e) => setSourceUrl(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            fontSize: '1rem',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-          }}
-        />
-      </div>
-
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label htmlFor="imageUrl" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-          Image URL
-        </label>
-        <input
-          id="imageUrl"
-          type="url"
-          placeholder="https://..."
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '0.5rem',
-            fontSize: '1rem',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-          }}
-        />
-      </div>
-
-      <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-        <button
-          type="submit"
-          style={{
-            padding: '0.75rem 2rem',
-            fontSize: '1rem',
-            backgroundColor: '#646cff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '500',
-          }}
-        >
-          Save Recipe
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{
-            padding: '0.75rem 2rem',
-            fontSize: '1rem',
-            backgroundColor: '#f0f0f0',
-            color: '#333',
-            border: '1px solid #ccc',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '500',
-          }}
-        >
-          Cancel
-        </button>
+      <div className="form-actions">
+        <button className="primary-btn" type="submit">Save Recipe</button>
+        <button className="secondary-btn" type="button" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );
