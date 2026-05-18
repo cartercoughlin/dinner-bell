@@ -16,6 +16,10 @@ dist-ssr
 # Claude Code
 .claude/
 
+# Capacitor iOS build artifacts (keep ios/ itself committed)
+ios/App/Pods/
+ios/App/build/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
