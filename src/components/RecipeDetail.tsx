@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Recipe } from '../types/recipe';
+import { MakeModeModal } from './MakeModeModal';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -8,6 +10,8 @@ interface RecipeDetailProps {
 }
 
 function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
+  const [isMaking, setIsMaking] = useState(false);
+
   return (
     <div style={{ maxWidth: '800px' }}>
       <div style={{ marginBottom: '1.5rem' }}>
@@ -46,6 +50,20 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>{recipe.title}</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => setIsMaking(true)}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.875rem',
+              backgroundColor: '#188038',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            Make
+          </button>
           <button
             onClick={onEdit}
             style={{
@@ -183,6 +201,10 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
       <div style={{ color: '#999', fontSize: '0.75rem', marginTop: '2rem' }}>
         Added {new Date(recipe.dateAdded).toLocaleDateString()}
       </div>
+
+      {isMaking && (
+        <MakeModeModal recipe={recipe} onClose={() => setIsMaking(false)} />
+      )}
     </div>
   );
 }

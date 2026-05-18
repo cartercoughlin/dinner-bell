@@ -39,6 +39,62 @@ function CalendarPage() {
 
       <Link className="text-link" to="/grocery-list">Open grocery list</Link>
 
+      <div className="calendar-mobile-list" aria-label="Meal calendar">
+        {days.map((day) => {
+          const dateKey = toDateKey(day);
+          const isToday = dateKey === toDateKey(new Date());
+
+          return (
+            <section className="calendar-mobile-day" key={dateKey}>
+              <div className="calendar-mobile-day-header">
+                <div>
+                  <span>{day.toLocaleDateString(undefined, { weekday: 'long' })}</span>
+                  <strong>{day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</strong>
+                </div>
+                {isToday && <em>Today</em>}
+              </div>
+
+              {MEAL_TYPES.map((mealType) => {
+                const mealPlan = getMealPlan(dateKey, mealType);
+                const recipe = mealPlan ? getRecipe(mealPlan.recipeId) : undefined;
+
+                return (
+                  <div className="calendar-mobile-meal" key={mealType}>
+                    <span className="calendar-mobile-meal-name">{mealType}</span>
+                    {recipe ? (
+                      <div className="calendar-mobile-event">
+                        <Link to={`/recipe/${recipe.id}`}>{recipe.title}</Link>
+                        <button type="button" onClick={() => removeMealPlan(dateKey, mealType)}>
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        aria-label={`Add ${mealType} on ${dateKey}`}
+                        value=""
+                        onChange={(event) => {
+                          if (event.target.value === '__random__') {
+                            assignRandom(dateKey, mealType);
+                          } else if (event.target.value) {
+                            setMealPlan(dateKey, mealType, event.target.value);
+                          }
+                        }}
+                      >
+                        <option value="">Add meal</option>
+                        <option value="__random__">Random recipe</option>
+                        {recipes.map((option) => (
+                          <option key={option.id} value={option.id}>{option.title}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
+          );
+        })}
+      </div>
+
       <div className="calendar-week" role="table" aria-label="Meal calendar">
         <div className="calendar-corner" aria-hidden="true" />
         {days.map((day) => {
