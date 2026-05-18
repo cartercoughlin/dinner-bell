@@ -250,9 +250,6 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
         <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.125rem' }}>
           Import from URL
         </h3>
-        <p style={{ marginBottom: '1rem', color: '#666', fontSize: '0.875rem' }}>
-          Paste a recipe URL to automatically fill in the details (works with most recipe websites)
-        </p>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
           <div style={{ flex: 1 }}>
             <input
@@ -321,9 +318,6 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
         <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.125rem', color: '#2e7d32' }}>
           Import from Photos
         </h3>
-        <p style={{ marginBottom: '1rem', color: '#666', fontSize: '0.875rem' }}>
-          Upload one or more photos of a printed recipe or cookbook page (OCR)
-        </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <input
             type="file"
