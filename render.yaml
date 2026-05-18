@@ -4,11 +4,9 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 3001
-      - key: ALLOWED_ORIGINS
-        fromGroup: dinner-bell-env
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: dinner-bell.onrender.com,localhost,127.0.0.1
     healthCheckPath: /health
     autoDeploy: true
