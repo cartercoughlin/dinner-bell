@@ -12,21 +12,20 @@ interface Props {
 
 function StepTimer({ suggestedMinutes }: { suggestedMinutes: number | null }) {
   const { status, remaining, start, pause, resume, reset } = useTimer();
-  const [editMinutes, setEditMinutes] = useState<number>(suggestedMinutes ?? 1);
+  // String state so the field can be temporarily empty while the user types
+  const [editValue, setEditValue] = useState<string>(String(suggestedMinutes ?? 1));
 
   // Sync edit field when step changes (only while idle)
   useEffect(() => {
-    if (status === 'idle' && suggestedMinutes !== null) setEditMinutes(suggestedMinutes);
+    if (status === 'idle' && suggestedMinutes !== null) setEditValue(String(suggestedMinutes));
   }, [suggestedMinutes, status]);
 
   const hasActiveTimer = status !== 'idle';
 
-  const handleEditChange = (val: string) => {
-    const n = parseInt(val, 10);
-    if (!isNaN(n) && n >= 1 && n <= 999) setEditMinutes(n);
-  };
+  const parsedMinutes = parseInt(editValue, 10);
+  const canStart = !isNaN(parsedMinutes) && parsedMinutes >= 1;
 
-  // Idle: editable suggestion + Start (only when step has a suggestion OR a timer was set before)
+  // Idle: editable suggestion + Start (only when step has a suggestion)
   if (!hasActiveTimer) {
     if (suggestedMinutes === null) return null;
     return (
@@ -37,15 +36,16 @@ function StepTimer({ suggestedMinutes }: { suggestedMinutes: number | null }) {
           className="step-timer-input"
           min={1}
           max={999}
-          value={editMinutes}
-          onChange={e => handleEditChange(e.target.value)}
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
           aria-label="Timer minutes"
         />
         <span className="step-timer-unit">min</span>
         <button
           className="step-timer-start-btn"
-          onClick={() => start(editMinutes * 60)}
-          aria-label={`Start ${editMinutes}-minute timer`}
+          onClick={() => canStart && start(parsedMinutes * 60)}
+          disabled={!canStart}
+          aria-label={canStart ? `Start ${parsedMinutes}-minute timer` : 'Enter a time'}
         >
           Start
         </button>
@@ -59,9 +59,9 @@ function StepTimer({ suggestedMinutes }: { suggestedMinutes: number | null }) {
       <div className="step-timer step-timer--done">
         <span className="step-timer-display" aria-live="assertive">⏱️ Time&rsquo;s up!</span>
         <button className="step-timer-action step-timer-action--cancel" onClick={reset}>Dismiss</button>
-        {suggestedMinutes !== null && (
-          <button className="step-timer-action" onClick={() => start(editMinutes * 60)}>
-            Restart {editMinutes}m
+        {suggestedMinutes !== null && canStart && (
+          <button className="step-timer-action" onClick={() => start(parsedMinutes * 60)}>
+            Restart {parsedMinutes}m
           </button>
         )}
       </div>
@@ -80,13 +80,13 @@ function StepTimer({ suggestedMinutes }: { suggestedMinutes: number | null }) {
         <button className="step-timer-action" onClick={resume} aria-label="Resume timer">Resume</button>
       )}
       <button className="step-timer-action step-timer-action--cancel" onClick={reset} aria-label="Cancel timer">Cancel</button>
-      {suggestedMinutes !== null && suggestedMinutes !== Math.round(remaining / 60 + /* rough */ 0) && (
+      {suggestedMinutes !== null && canStart && (
         <button
           className="step-timer-action step-timer-action--replace"
-          onClick={() => start(editMinutes * 60)}
-          aria-label={`Start new ${editMinutes}-minute timer`}
+          onClick={() => start(parsedMinutes * 60)}
+          aria-label={`Start new ${parsedMinutes}-minute timer`}
         >
-          ↺ {editMinutes}m
+          ↺ {parsedMinutes}m
         </button>
       )}
     </div>
