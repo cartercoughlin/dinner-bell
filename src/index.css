@@ -504,3 +504,251 @@ button:active {
 * {
   -webkit-overflow-scrolling: touch;
 }
+
+/* ── Recipe card footer & Make button ─────────────────────────────────── */
+
+.recipe-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border-soft);
+  margin-top: var(--space-2);
+}
+
+.make-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, transform 100ms ease;
+}
+
+.make-btn:hover {
+  opacity: 1;
+  background: var(--primary-pressed);
+}
+
+.make-btn:active {
+  transform: scale(0.96);
+  opacity: 1;
+}
+
+/* ── Make Mode Modal ───────────────────────────────────────────────────── */
+
+.make-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  padding: 0;
+}
+
+@media (min-width: 600px) {
+  .make-overlay {
+    align-items: center;
+    padding: var(--space-6);
+  }
+}
+
+.make-modal {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--background);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 92dvh;
+  overflow: hidden;
+  /* iOS safe area: add space for home indicator */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 600px) {
+  .make-modal {
+    border-radius: 16px;
+    max-height: 88dvh;
+  }
+}
+
+.make-header {
+  flex-shrink: 0;
+  padding: var(--space-5) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.make-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.make-title {
+  flex: 1;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.make-close-btn {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  background: var(--surface-strong);
+  border: none;
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.make-close-btn:hover {
+  opacity: 1;
+  background: var(--border);
+}
+
+.make-progress-track {
+  height: 4px;
+  background: var(--surface-strong);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+
+.make-progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 2px;
+  transition: width 300ms ease;
+}
+
+.make-step-counter {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.make-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  -webkit-overflow-scrolling: touch;
+}
+
+.make-step-text {
+  font-size: 1.2rem;
+  line-height: 1.65;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.make-ingredients-section {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.make-ingredients-heading {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: var(--space-3);
+}
+
+.make-ingredient-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.make-ingredient-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.make-ingredient-qty {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--primary);
+  min-width: 56px;
+  font-size: 0.95rem;
+}
+
+.make-ingredient-name {
+  color: var(--text);
+}
+
+.make-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-soft);
+}
+
+.make-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: 0 var(--space-5);
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.make-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.make-nav-btn:not(:disabled):hover {
+  opacity: 1;
+  background: var(--surface);
+}
+
+.make-next-btn {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.make-next-btn:not(:disabled):hover {
+  background: var(--primary-pressed);
+  border-color: var(--primary-pressed);
+}
+
