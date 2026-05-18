@@ -4,6 +4,8 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
 import { RecipeProvider } from './contexts/RecipeContext';
+import { TimerProvider } from './contexts/TimerContext';
+import { FloatingTimer } from './components/FloatingTimer';
 import RecipeListPage from './pages/RecipeListPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
 import RecipeFormPage from './pages/RecipeFormPage';
@@ -33,6 +35,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <TimerProvider>
       <RecipeProvider>
         <div className="app">
           <header className="app-header">
@@ -58,7 +61,9 @@ function App() {
             </Routes>
           </main>
         </div>
+        <FloatingTimer />
       </RecipeProvider>
+      </TimerProvider>
     </BrowserRouter>
   );
 }

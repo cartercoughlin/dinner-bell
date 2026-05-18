@@ -2,10 +2,95 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Recipe } from '../types/recipe';
 import { matchIngredientsToSteps } from '../utils/matchIngredients';
+import { extractMinutes, formatTime } from '../utils/extractTime';
+import { useTimer } from '../contexts/TimerContext';
 
 interface Props {
   recipe: Recipe;
   onClose: () => void;
+}
+
+function StepTimer({ suggestedMinutes }: { suggestedMinutes: number | null }) {
+  const { status, remaining, start, pause, resume, reset } = useTimer();
+  const [editMinutes, setEditMinutes] = useState<number>(suggestedMinutes ?? 1);
+
+  // Sync edit field when step changes (only while idle)
+  useEffect(() => {
+    if (status === 'idle' && suggestedMinutes !== null) setEditMinutes(suggestedMinutes);
+  }, [suggestedMinutes, status]);
+
+  const hasActiveTimer = status !== 'idle';
+
+  const handleEditChange = (val: string) => {
+    const n = parseInt(val, 10);
+    if (!isNaN(n) && n >= 1 && n <= 999) setEditMinutes(n);
+  };
+
+  // Idle: editable suggestion + Start (only when step has a suggestion OR a timer was set before)
+  if (!hasActiveTimer) {
+    if (suggestedMinutes === null) return null;
+    return (
+      <div className="step-timer-idle">
+        <span aria-hidden="true">⏱️</span>
+        <input
+          type="number"
+          className="step-timer-input"
+          min={1}
+          max={999}
+          value={editMinutes}
+          onChange={e => handleEditChange(e.target.value)}
+          aria-label="Timer minutes"
+        />
+        <span className="step-timer-unit">min</span>
+        <button
+          className="step-timer-start-btn"
+          onClick={() => start(editMinutes * 60)}
+          aria-label={`Start ${editMinutes}-minute timer`}
+        >
+          Start
+        </button>
+      </div>
+    );
+  }
+
+  // Done
+  if (status === 'done') {
+    return (
+      <div className="step-timer step-timer--done">
+        <span className="step-timer-display" aria-live="assertive">⏱️ Time&rsquo;s up!</span>
+        <button className="step-timer-action step-timer-action--cancel" onClick={reset}>Dismiss</button>
+        {suggestedMinutes !== null && (
+          <button className="step-timer-action" onClick={() => start(editMinutes * 60)}>
+            Restart {editMinutes}m
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Running or paused
+  return (
+    <div className={`step-timer ${status === 'paused' ? 'step-timer--paused' : ''}`}>
+      <span className="step-timer-display" aria-live="polite" aria-atomic="true">
+        <span aria-hidden="true">⏱️</span> {formatTime(remaining)}
+      </span>
+      {status === 'running' ? (
+        <button className="step-timer-action" onClick={pause} aria-label="Pause timer">Pause</button>
+      ) : (
+        <button className="step-timer-action" onClick={resume} aria-label="Resume timer">Resume</button>
+      )}
+      <button className="step-timer-action step-timer-action--cancel" onClick={reset} aria-label="Cancel timer">Cancel</button>
+      {suggestedMinutes !== null && suggestedMinutes !== Math.round(remaining / 60 + /* rough */ 0) && (
+        <button
+          className="step-timer-action step-timer-action--replace"
+          onClick={() => start(editMinutes * 60)}
+          aria-label={`Start new ${editMinutes}-minute timer`}
+        >
+          ↺ {editMinutes}m
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function MakeModeModal({ recipe, onClose }: Props) {
@@ -13,6 +98,7 @@ export function MakeModeModal({ recipe, onClose }: Props) {
   const total = recipe.directions.length;
   const stepIngredients = matchIngredientsToSteps(recipe.ingredients, recipe.directions);
   const currentIngredients = stepIngredients[step] ?? [];
+  const suggestedMinutes = extractMinutes(recipe.directions[step] ?? '');
 
   const touchStartX = useRef<number | null>(null);
 
@@ -52,7 +138,7 @@ export function MakeModeModal({ recipe, onClose }: Props) {
   const isLast = step === total - 1;
 
   const ingredientLabel = (amount: string, unit: string) =>
-    [amount, unit].filter(Boolean).join(' ');
+    [amount, unit].filter(Boolean).join(' ');
 
   return createPortal(
     <div className="make-overlay" onClick={onClose} aria-modal="true" role="dialog">
@@ -85,6 +171,8 @@ export function MakeModeModal({ recipe, onClose }: Props) {
         {/* Body */}
         <div className="make-body">
           <p className="make-step-text">{recipe.directions[step]}</p>
+
+          <StepTimer suggestedMinutes={suggestedMinutes} />
 
           {currentIngredients.length > 0 && (
             <div className="make-ingredients-section">
