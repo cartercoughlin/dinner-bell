@@ -22,8 +22,8 @@ function StepTimer({ suggestedMinutes }: { suggestedMinutes: number | null }) {
 
   const hasActiveTimer = status !== 'idle';
 
-  const parsedMinutes = parseInt(editValue, 10);
-  const canStart = !isNaN(parsedMinutes) && parsedMinutes >= 1;
+  const parsedMinutes = parseFloat(editValue);
+  const canStart = !isNaN(parsedMinutes) && parsedMinutes > 0;
 
   // Idle: editable suggestion + Start (only when step has a suggestion)
   if (!hasActiveTimer) {
@@ -34,8 +34,9 @@ function StepTimer({ suggestedMinutes }: { suggestedMinutes: number | null }) {
         <input
           type="number"
           className="step-timer-input"
-          min={1}
+          min={0.1}
           max={999}
+          step="any"
           value={editValue}
           onChange={e => setEditValue(e.target.value)}
           aria-label="Timer minutes"
