@@ -43,12 +43,162 @@ const CATEGORIES: Record<string, string[]> = {
   Beverages: ['water', 'juice', 'wine', 'beer', 'coffee', 'tea', 'soda'],
 };
 
+const PREP_WORDS = new Set([
+  'fresh',
+  'frozen',
+  'canned',
+  'dry',
+  'dried',
+  'large',
+  'medium',
+  'small',
+  'thinly',
+  'finely',
+  'roughly',
+  'whole',
+  'halved',
+  'chopped',
+  'diced',
+  'minced',
+  'sliced',
+  'grated',
+  'shredded',
+  'crushed',
+  'ground',
+  'melted',
+  'toasted',
+  'cooked',
+  'peeled',
+  'trimmed',
+  'rinsed',
+  'drained',
+  'divided',
+  'packed',
+  'optional',
+  'about',
+  'additional',
+  'plus',
+  'for',
+  'serving',
+  'garnish',
+  'seeded',
+]);
+
+const INGREDIENT_ALIASES: Array<[string, string]> = [
+  ['scallions', 'green onion'],
+  ['scallion', 'green onion'],
+  ['spring onions', 'green onion'],
+  ['spring onion', 'green onion'],
+  ['garbanzo beans', 'chickpea'],
+  ['garbanzo bean', 'chickpea'],
+  ['chickpeas', 'chickpea'],
+  ['red bell peppers', 'bell pepper'],
+  ['green bell peppers', 'bell pepper'],
+  ['yellow bell peppers', 'bell pepper'],
+  ['orange bell peppers', 'bell pepper'],
+  ['red bell pepper', 'bell pepper'],
+  ['green bell pepper', 'bell pepper'],
+  ['yellow bell pepper', 'bell pepper'],
+  ['orange bell pepper', 'bell pepper'],
+  ['bell peppers', 'bell pepper'],
+  ['sweet peppers', 'bell pepper'],
+  ['roma tomatoes', 'tomato'],
+  ['cherry tomatoes', 'tomato'],
+  ['grape tomatoes', 'tomato'],
+  ['tomatoes', 'tomato'],
+  ['russet potatoes', 'potato'],
+  ['yukon gold potatoes', 'potato'],
+  ['potatoes', 'potato'],
+  ['cloves garlic', 'garlic'],
+  ['garlic cloves', 'garlic'],
+  ['clove garlic', 'garlic'],
+  ['garlic clove', 'garlic'],
+  ['yellow onions', 'onion'],
+  ['white onions', 'onion'],
+  ['red onions', 'onion'],
+  ['sweet onions', 'onion'],
+  ['yellow onion', 'onion'],
+  ['white onion', 'onion'],
+  ['red onion', 'onion'],
+  ['sweet onion', 'onion'],
+  ['onions', 'onion'],
+  ['limes', 'lime'],
+  ['lemons', 'lemon'],
+  ['eggs', 'egg'],
+  ['salt and black pepper', 'salt and pepper'],
+  ['kosher salt and black pepper', 'salt and pepper'],
+  ['sea salt and black pepper', 'salt and pepper'],
+  ['kosher salt', 'salt'],
+  ['sea salt', 'salt'],
+  ['table salt', 'salt'],
+  ['black pepper', 'pepper'],
+  ['white pepper', 'pepper'],
+  ['peppercorns', 'pepper'],
+  ['extra virgin olive oil', 'olive oil'],
+  ['evoo', 'olive oil'],
+  ['vegetable oil', 'neutral oil'],
+  ['canola oil', 'neutral oil'],
+  ['all-purpose flour', 'flour'],
+  ['all purpose flour', 'flour'],
+  ['ap flour', 'flour'],
+  ['arrowroot flour', 'cornstarch'],
+  ['granulated sugar', 'sugar'],
+  ['caster sugar', 'sugar'],
+  ['confectioners sugar', 'powdered sugar'],
+  ['powdered sugar', 'powdered sugar'],
+  ['brown sugar', 'brown sugar'],
+  ['parmesan cheese', 'parmesan'],
+  ['parmigiano reggiano', 'parmesan'],
+  ['mozzarella cheese', 'mozzarella'],
+  ['cheddar cheese', 'cheddar'],
+  ['salted butter', 'butter'],
+  ['unsalted butter', 'butter'],
+  ['butter melted', 'butter'],
+];
+
 function ingredientLabel(ingredient: Ingredient) {
   return [ingredient.amount, ingredient.unit].filter(Boolean).join(' ').trim();
 }
 
+function singularize(word: string) {
+  if (word.endsWith('ies') && word.length > 4) return `${word.slice(0, -3)}y`;
+  if (word.endsWith('oes') && word.length > 4) return word.slice(0, -2);
+  if (word.endsWith('ses') && word.length > 4) return word.slice(0, -2);
+  if (word.endsWith('s') && !word.endsWith('ss') && word.length > 3) return word.slice(0, -1);
+  return word;
+}
+
+function normalizeIngredientName(name: string) {
+  let normalized = name
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  for (const [alias, canonical] of INGREDIENT_ALIASES) {
+    const pattern = new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+    normalized = normalized.replace(pattern, canonical);
+  }
+
+  const words = normalized
+    .split(/\s+/)
+    .map(singularize)
+    .filter((word) => word && !PREP_WORDS.has(word));
+
+  return words.join(' ').trim();
+}
+
 function categoryFor(name: string) {
   const lowerName = name.toLowerCase();
+  if (lowerName.includes('salt') || lowerName === 'pepper' || lowerName.includes('peppercorn')) {
+    return 'Spices and Seasonings';
+  }
+  if (lowerName.includes('bell pepper') || lowerName.includes('poblano') || lowerName.includes('jalape')) {
+    return 'Produce';
+  }
+
   const matches = Object.entries(CATEGORIES)
     .flatMap(([category, keywords]) =>
       keywords
@@ -65,7 +215,7 @@ export function buildGroceryCategories(recipes: Recipe[]): GroceryCategory[] {
 
   recipes.forEach((recipe) => {
     recipe.ingredients.forEach((ingredient) => {
-      const key = ingredient.name.trim().toLowerCase();
+      const key = normalizeIngredientName(ingredient.name);
       if (!key) return;
 
       const amount = ingredientLabel(ingredient);
@@ -79,11 +229,11 @@ export function buildGroceryCategories(recipes: Recipe[]): GroceryCategory[] {
 
       items.set(key, {
         key,
-        name: ingredient.name,
+        name: key,
         amounts: amount ? [amount] : [],
         recipes: [],
         recipeSet: new Set([recipe.title]),
-        category: categoryFor(ingredient.name),
+        category: categoryFor(key),
       });
     });
   });
@@ -107,4 +257,3 @@ export function buildGroceryCategories(recipes: Recipe[]): GroceryCategory[] {
       items: (grouped.get(category) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
     }));
 }
-
