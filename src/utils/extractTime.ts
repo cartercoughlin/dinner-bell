@@ -19,11 +19,11 @@ export function extractMinutes(text: string): number | null {
     return Math.round(parseFloat(hmMatch[1]) * 60 + parseInt(hmMatch[2], 10));
   }
 
-  // Match ranges like "10-15 minutes" — use the upper end
+  // Match ranges like "10-15 minutes" — use the lower end (the first number mentioned)
   const rangeRe = /(\d+)\s*[-–]\s*(\d+)\s*(?:minutes?|mins?)/;
   const rangeMatch = t.match(rangeRe);
   if (rangeMatch) {
-    return parseInt(rangeMatch[2], 10);
+    return parseInt(rangeMatch[1], 10);
   }
 
   // Match plain hours: "1 hour", "1.5 hours", "2 hr"

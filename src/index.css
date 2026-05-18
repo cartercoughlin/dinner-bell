@@ -1,30 +1,33 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  --background: #ffffff;
-  --surface: #f8fafc;
-  --surface-strong: #f1f5f9;
-  --border: #d0d7de;
-  --border-soft: #e5e7eb;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --primary: #2563eb;
-  --primary-pressed: #1d4ed8;
-  --success: #188038;
-  --danger: #d93025;
-  --radius: 8px;
+  --background: #f2f2f7;
+  --surface: #ffffff;
+  --surface-secondary: #f2f2f7;
+  --surface-strong: rgba(118, 118, 128, 0.12);
+  --border: rgba(60, 60, 67, 0.20);
+  --border-soft: rgba(60, 60, 67, 0.10);
+  --text: #1c1c1e;
+  --muted: #8e8e93;
+  --primary: #007AFF;
+  --primary-pressed: #0066d6;
+  --success: #34c759;
+  --danger: #ff3b30;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
-
   color-scheme: light;
   color: var(--text);
   background-color: var(--background);
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -76,10 +79,10 @@ body {
   margin-right: calc(var(--space-6) * -1);
   padding: var(--space-4) var(--space-6);
   padding-top: calc(env(safe-area-inset-top) + var(--space-3));
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(242, 242, 247, 0.88);
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
 }
 
 .app-header h1 {
@@ -87,6 +90,8 @@ body {
   color: var(--text);
   font-size: 2rem;
   line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .app-header h1 span {
@@ -96,24 +101,33 @@ body {
 
 .app-nav {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-1);
   overflow-x: auto;
-  padding-bottom: var(--space-1);
   -webkit-overflow-scrolling: touch;
 }
 
 .app-nav a {
   flex: 0 0 auto;
-  min-height: 44px;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
+  padding: 0 var(--space-3);
   color: var(--muted);
   text-decoration: none;
   font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 999px;
+  transition: background 150ms ease, color 150ms ease;
 }
 
 .app-nav a.active {
-  color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.app-nav a:not(.active):hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text);
 }
 
 main {
@@ -175,10 +189,10 @@ main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
-  padding: 0 var(--space-4);
-  border-radius: 6px;
-  font-size: 0.9rem;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border-radius: 12px;
+  font-size: 0.95rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -202,7 +216,7 @@ main {
 }
 
 .secondary-btn {
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
 }
@@ -220,7 +234,7 @@ select {
   min-height: 44px;
   min-width: 0;
   color: var(--text);
-  background-color: var(--background);
+  background-color: var(--surface);
   border-color: var(--border);
 }
 
@@ -253,15 +267,21 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   background-color: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
+  border: none;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: background-color 150ms ease, border-color 150ms ease;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 200ms ease, transform 150ms ease;
 }
 
 .recipe-card:hover {
-  background-color: #fff;
-  border-color: var(--border);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.recipe-card:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 .recipe-card-body {
@@ -300,7 +320,7 @@ textarea::placeholder {
 }
 
 .tag {
-  background-color: #eff6ff;
+  background-color: rgba(0, 122, 255, 0.10);
   color: var(--primary);
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
@@ -356,14 +376,15 @@ textarea::placeholder {
   width: 100%;
   min-height: 44px;
   padding: 0 var(--space-3) 0 calc(var(--space-3) + 16px + var(--space-2));
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: #fff;
+  border: none;
+  border-radius: 10px;
+  background: rgba(118, 118, 128, 0.12);
   font-size: 1rem;
   color: var(--text);
 }
 
 .recipe-search-input:focus {
+  background: var(--surface);
   outline: 2px solid var(--primary);
   outline-offset: -1px;
 }
@@ -381,23 +402,25 @@ textarea::placeholder {
   min-height: 36px;
   padding: 0 var(--space-3);
   font-size: 0.875rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
 }
 
 .filter-clear-btn {
   min-height: 36px;
   padding: 0 var(--space-3);
-  border: 1px solid var(--border);
-  background: #fff;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
   color: var(--muted);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
 }
 
 .filter-clear-btn:hover {
@@ -568,9 +591,10 @@ textarea::placeholder {
 .form-section {
   width: 100%;
   padding: var(--space-4);
-  border: 1px solid var(--border-soft);
+  border: none;
   border-radius: var(--radius);
   background: #fff;
+  box-shadow: var(--shadow-sm);
 }
 
 .recipe-import-panel {
@@ -793,10 +817,11 @@ button:active {
 }
 
 .grocery-category {
-  border: 1px solid var(--border-soft);
+  border: none;
   border-radius: var(--radius);
   background: var(--surface);
   padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
 }
 
 .grocery-category h2 {
@@ -829,10 +854,11 @@ button:active {
   display: grid;
   grid-template-columns: 84px repeat(7, minmax(102px, 1fr));
   overflow-x: auto;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius);
   background: #fff;
   scroll-snap-type: x proximity;
+  box-shadow: var(--shadow-sm);
 }
 
 .calendar-corner,
@@ -915,8 +941,8 @@ button:active {
   justify-content: space-between;
   padding: 7px;
   border-radius: 6px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: #e8f0fe;
+  border: 1px solid #c5d8fb;
 }
 
 .calendar-event a {
@@ -949,25 +975,44 @@ button:active {
 }
 
 .toolbar-actions button,
-.page-toolbar > button,
-.segmented-control button {
+.page-toolbar > button {
   padding: 0 var(--space-3);
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
 }
 
 .segmented-control {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
+  display: flex;
+  gap: 2px;
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 9px;
+  padding: 2px;
+}
+
+.segmented-control button {
+  flex: 1;
+  min-height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 200ms ease, box-shadow 200ms ease;
 }
 
 .segmented-control button.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.06);
 }
 
 .grocery-item {
@@ -1189,9 +1234,10 @@ button:active {
     width: 100%;
     min-width: 0;
     background: #fff;
-    border: 1px solid var(--border-soft);
+    border: none;
     border-radius: var(--radius);
     overflow: hidden;
+    box-shadow: var(--shadow-sm);
   }
 
   .calendar-mobile-day-header {
@@ -1261,9 +1307,9 @@ button:active {
     align-items: center;
     min-height: 44px;
     padding: var(--space-2) var(--space-3);
-    border: 1px solid #bfdbfe;
+    border: 1px solid #c5d8fb;
     border-radius: 7px;
-    background: #eff6ff;
+    background: #e8f0fe;
   }
 
   .calendar-mobile-event a {
@@ -1371,6 +1417,7 @@ button:active {
   overflow: hidden;
   /* iOS safe area: add space for home indicator */
   padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -2px 30px rgba(0,0,0,0.12);
 }
 
 @media (min-width: 600px) {

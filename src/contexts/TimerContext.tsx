@@ -18,7 +18,6 @@ function load(): TimerData {
     const s = localStorage.getItem(STORAGE_KEY);
     if (!s) return DEFAULT;
     const d: TimerData = JSON.parse(s);
-    // If it was running when persisted, check if it already finished
     if (d.status === 'running' && d.startedAt) {
       const elapsed = d.accumulatedSeconds + Math.floor((Date.now() - d.startedAt) / 1000);
       if (elapsed >= d.totalSeconds) return { ...d, accumulatedSeconds: d.totalSeconds, startedAt: null, status: 'done' };
@@ -42,18 +41,25 @@ function calcRemaining(d: TimerData): number {
   return Math.max(0, d.totalSeconds - d.accumulatedSeconds - runningExtra);
 }
 
-function beep() {
+// Plays three short ascending beeps — one "ring" of the alarm
+function playAlarmRing() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.5, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 1.0);
+    const freqs = [880, 1046, 1318]; // A5 → C6 → E6 (major chord)
+    freqs.forEach((freq, i) => {
+      const t = ctx.currentTime + i * 0.18;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.55, t + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      osc.start(t);
+      osc.stop(t + 0.3);
+    });
   } catch {}
 }
 
@@ -73,14 +79,27 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<TimerData>(load);
   const [tick, setTick] = useState(0);
   const intervalRef = useRef<number | null>(null);
-  const beepTimeoutRef = useRef<number | null>(null);
+  const finishTimeoutRef = useRef<number | null>(null);
+  const alarmIntervalRef = useRef<number | null>(null);
 
   const remaining = calcRemaining(data);
 
-  const clearAll = () => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    if (beepTimeoutRef.current) { clearTimeout(beepTimeoutRef.current); beepTimeoutRef.current = null; }
+  const stopAlarm = () => {
+    if (alarmIntervalRef.current) { clearInterval(alarmIntervalRef.current); alarmIntervalRef.current = null; }
   };
+
+  const startAlarm = () => {
+    stopAlarm();
+    playAlarmRing();
+    alarmIntervalRef.current = window.setInterval(playAlarmRing, 2200);
+  };
+
+  const clearCountdown = () => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    if (finishTimeoutRef.current) { clearTimeout(finishTimeoutRef.current); finishTimeoutRef.current = null; }
+  };
+
+  const clearAll = () => { clearCountdown(); stopAlarm(); };
 
   // Tick interval forces re-renders while running
   useEffect(() => {
@@ -92,75 +111,80 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [data.status, data.startedAt]);
 
-  // Watch for natural completion during running ticks
+  // Watch for natural completion on each tick
   useEffect(() => {
     if (data.status !== 'running') return;
-    const rem = calcRemaining(data);
-    if (rem === 0) {
-      clearAll();
+    if (calcRemaining(data) === 0) {
+      clearCountdown();
       const next: TimerData = { ...data, accumulatedSeconds: data.totalSeconds, startedAt: null, status: 'done' };
       setData(next);
       save(next);
-      beep();
+      startAlarm();
     }
-  }, [tick, data]);
+  }, [tick, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Schedule a one-shot timeout to trigger beep at the exact finish time
-  const scheduleBeep = useCallback((remainingMs: number) => {
-    if (beepTimeoutRef.current) clearTimeout(beepTimeoutRef.current);
-    beepTimeoutRef.current = window.setTimeout(() => {
+  // Schedule a precise timeout to fire alarm at finish time
+  const scheduleFinish = useCallback((remainingMs: number) => {
+    if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
+    finishTimeoutRef.current = window.setTimeout(() => {
       setData(prev => {
         if (prev.status !== 'running') return prev;
         const next: TimerData = { ...prev, accumulatedSeconds: prev.totalSeconds, startedAt: null, status: 'done' };
         save(next);
-        beep();
         return next;
       });
+      startAlarm();
     }, remainingMs);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = useCallback((seconds: number) => {
     clearAll();
     const next: TimerData = { totalSeconds: seconds, startedAt: Date.now(), accumulatedSeconds: 0, status: 'running' };
     setData(next);
     save(next);
-    scheduleBeep(seconds * 1000);
-  }, [scheduleBeep]);
+    scheduleFinish(seconds * 1000);
+  }, [scheduleFinish]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pause = useCallback(() => {
     setData(prev => {
       if (prev.status !== 'running') return prev;
-      clearAll();
+      clearCountdown();
       const elapsed = prev.startedAt ? Math.floor((Date.now() - prev.startedAt) / 1000) : 0;
       const next: TimerData = { ...prev, accumulatedSeconds: prev.accumulatedSeconds + elapsed, startedAt: null, status: 'paused' };
       save(next);
       return next;
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resume = useCallback(() => {
     setData(prev => {
       if (prev.status !== 'paused') return prev;
       const next: TimerData = { ...prev, startedAt: Date.now(), status: 'running' };
       save(next);
-      const rem = calcRemaining(next);
-      scheduleBeep(rem * 1000);
+      scheduleFinish(calcRemaining(next) * 1000);
       return next;
     });
-  }, [scheduleBeep]);
+  }, [scheduleFinish]);
 
   const reset = useCallback(() => {
     clearAll();
-    const next = DEFAULT;
-    setData(next);
-    save(next);
-  }, []);
+    setData(DEFAULT);
+    save(DEFAULT);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-schedule beep on mount if timer was running when page loaded
+  // On mount: if already done (expired while away), start alarm; if running, reschedule finish
   useEffect(() => {
-    if (data.status === 'running' && data.startedAt) {
+    if (data.status === 'done') {
+      startAlarm();
+    } else if (data.status === 'running' && data.startedAt) {
       const rem = calcRemaining(data);
-      if (rem > 0) scheduleBeep(rem * 1000);
+      if (rem > 0) scheduleFinish(rem * 1000);
+      else {
+        const next: TimerData = { ...data, accumulatedSeconds: data.totalSeconds, startedAt: null, status: 'done' };
+        setData(next);
+        save(next);
+        startAlarm();
+      }
     }
     return clearAll;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
