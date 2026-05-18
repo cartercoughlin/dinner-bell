@@ -148,21 +148,23 @@ export function RecipeList() {
               {recipe.imageUrl && (
                 <img className="recipe-card-image" src={recipe.imageUrl} alt="" loading="lazy" />
               )}
-              <h3>{recipe.title}</h3>
-              <p>{recipe.ingredients.length} ingredients · {recipe.servings} servings</p>
-              {recipe.tags && recipe.tags.length > 0 && (
-                <div className="tags">
-                  {recipe.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className={`tag ${normalize(tag) === normalize(tagFilter) ? 'tag--active' : ''}`}
-                      onClick={e => { e.stopPropagation(); setTag(tagFilter === tag ? '' : tag); }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <div className="recipe-card-body">
+                <h3>{recipe.title}</h3>
+                <p>{recipe.ingredients.length} ingredients · {recipe.servings} servings</p>
+                {recipe.tags && recipe.tags.length > 0 && (
+                  <div className="tags">
+                    {recipe.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className={`tag ${normalize(tag) === normalize(tagFilter) ? 'tag--active' : ''}`}
+                        onClick={e => { e.stopPropagation(); setTag(tagFilter === tag ? '' : tag); }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="recipe-card-footer">
                 <button
                   className="make-btn"

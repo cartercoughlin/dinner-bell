@@ -13,89 +13,56 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
   const [isMaking, setIsMaking] = useState(false);
 
   return (
-    <div style={{ maxWidth: '800px' }}>
-      <div style={{ marginBottom: '1.5rem' }}>
+    <div className="recipe-detail">
+      <div className="recipe-detail-back">
         <button
           onClick={onBack}
-          style={{
-            padding: '0.5rem 1rem',
-            fontSize: '0.875rem',
-            backgroundColor: '#f0f0f0',
-            color: '#333',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginBottom: '1rem',
-          }}
+          className="secondary-btn"
         >
           ← Back to Recipes
         </button>
       </div>
 
       {recipe.imageUrl && (
-        <div style={{ marginBottom: '1.5rem' }}>
+        <div className="recipe-detail-image">
           <img
             src={recipe.imageUrl}
             alt={recipe.title}
-            style={{
-              width: '100%',
-              maxHeight: '400px',
-              objectFit: 'cover',
-              borderRadius: '8px',
-            }}
           />
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>{recipe.title}</h1>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <div className="recipe-detail-header">
+        <h1>{recipe.title}</h1>
+        <div className="recipe-detail-actions">
           <button
             onClick={() => setIsMaking(true)}
-            style={{
-              padding: '0.5rem 1rem',
-              fontSize: '0.875rem',
-              backgroundColor: '#188038',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
+            className="recipe-action-btn recipe-action-btn--make"
+            aria-label="Make recipe"
+            title="Make"
           >
-            Make
+            <span aria-hidden="true">🍳</span>
           </button>
           <button
             onClick={onEdit}
-            style={{
-              padding: '0.5rem 1rem',
-              fontSize: '0.875rem',
-              backgroundColor: '#646cff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
+            className="recipe-action-btn recipe-action-btn--edit"
+            aria-label="Edit recipe"
+            title="Edit"
           >
-            Edit
+            <span aria-hidden="true">✏️</span>
           </button>
           <button
             onClick={onDelete}
-            style={{
-              padding: '0.5rem 1rem',
-              fontSize: '0.875rem',
-              backgroundColor: '#f44336',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
+            className="recipe-action-btn recipe-action-btn--delete"
+            aria-label="Delete recipe"
+            title="Delete"
           >
-            Delete
+            <span aria-hidden="true">🗑️</span>
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem', color: '#666' }}>
+      <div className="recipe-detail-meta">
         <div>
           <strong>Servings:</strong> {recipe.servings}
         </div>
@@ -112,19 +79,10 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
       </div>
 
       {recipe.tags && recipe.tags.length > 0 && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="recipe-detail-section">
+          <div className="recipe-detail-pills">
             {recipe.tags.map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  padding: '0.25rem 0.75rem',
-                  fontSize: '0.875rem',
-                  backgroundColor: '#e3f2fd',
-                  color: '#1976d2',
-                  borderRadius: '16px',
-                }}
-              >
+              <span key={tag} className="tag">
                 {tag}
               </span>
             ))}
@@ -133,20 +91,11 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
       )}
 
       {recipe.tools && recipe.tools.length > 0 && (
-        <div style={{ marginBottom: '1.5rem' }}>
+        <div className="recipe-detail-section">
           <h3>Equipment Needed</h3>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="recipe-detail-pills">
             {recipe.tools.map((tool) => (
-              <span
-                key={tool}
-                style={{
-                  padding: '0.25rem 0.75rem',
-                  fontSize: '0.875rem',
-                  backgroundColor: '#fff3e0',
-                  color: '#e65100',
-                  borderRadius: '16px',
-                }}
-              >
+              <span key={tool} className="tool-pill">
                 {tool}
               </span>
             ))}
@@ -154,11 +103,11 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
         </div>
       )}
 
-      <div style={{ marginBottom: '2rem' }}>
+      <div className="recipe-detail-section">
         <h2>Ingredients</h2>
-        <ul style={{ lineHeight: '1.8', paddingLeft: '1.5rem', marginTop: '0.75rem' }}>
+        <ul className="recipe-detail-list">
           {recipe.ingredients.map((ingredient) => (
-            <li key={ingredient.id} style={{ paddingLeft: '0.25rem', marginBottom: '0.5rem' }}>
+            <li key={ingredient.id}>
               {ingredient.amount && <strong>{ingredient.amount} </strong>}
               {ingredient.unit && <span>{ingredient.unit} </span>}
               {ingredient.name}
@@ -167,11 +116,11 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
         </ul>
       </div>
 
-      <div style={{ marginBottom: '2rem' }}>
+      <div className="recipe-detail-section">
         <h2>Directions</h2>
-        <ol style={{ lineHeight: '1.8', paddingLeft: '1.5rem' }}>
+        <ol className="recipe-detail-list recipe-detail-list--ordered">
           {recipe.directions.map((step, index) => (
-            <li key={index} style={{ marginBottom: '0.75rem' }}>
+            <li key={index}>
               {step}
             </li>
           ))}
@@ -179,13 +128,12 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
       </div>
 
       {recipe.sourceUrl && (
-        <div style={{ marginBottom: '1.5rem' }}>
+        <div className="recipe-detail-section">
           <strong>Source: </strong>
           <a
             href={recipe.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: '#646cff' }}
           >
             {recipe.sourceUrl}
           </a>
@@ -193,12 +141,12 @@ function RecipeDetail({ recipe, onEdit, onDelete, onBack }: RecipeDetailProps) {
       )}
 
       {recipe.lastMade && (
-        <div style={{ color: '#666', fontSize: '0.875rem' }}>
+        <div className="recipe-detail-note">
           <strong>Last Made:</strong> {new Date(recipe.lastMade).toLocaleDateString()}
         </div>
       )}
 
-      <div style={{ color: '#999', fontSize: '0.75rem', marginTop: '2rem' }}>
+      <div className="recipe-detail-added">
         Added {new Date(recipe.dateAdded).toLocaleDateString()}
       </div>
 

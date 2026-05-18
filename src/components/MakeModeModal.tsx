@@ -94,11 +94,9 @@ export function MakeModeModal({ recipe, onClose }: Props) {
               <ul className="make-ingredient-list">
                 {currentIngredients.map(ing => (
                   <li key={ing.id} className="make-ingredient-item">
-                    {(ing.amount || ing.unit) && (
-                      <span className="make-ingredient-qty">
-                        {ingredientLabel(ing.amount, ing.unit)}
-                      </span>
-                    )}
+                    <span className={`make-ingredient-qty ${!(ing.amount || ing.unit) ? 'make-ingredient-qty--empty' : ''}`}>
+                      {ingredientLabel(ing.amount, ing.unit)}
+                    </span>
                     <span className="make-ingredient-name">{ing.name}</span>
                   </li>
                 ))}

@@ -9,8 +9,9 @@ function RecipeListPage() {
       <div className="page-toolbar">
         <h1>My Recipes</h1>
         <div className="toolbar-actions">
-          <button type="button" onClick={() => navigate('/recipe/new')}>
-            + Add Recipe
+          <button type="button" className="add-recipe-btn" onClick={() => navigate('/recipe/new')}>
+            <span aria-hidden="true">+</span>
+            <span>Add Recipe</span>
           </button>
         </div>
       </div>

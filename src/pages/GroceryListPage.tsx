@@ -9,6 +9,8 @@ const CHECKED_KEY = 'dinner-bell-grocery-checked';
 function GroceryListPage() {
   const { recipes, mealPlans } = useRecipes();
   const [source, setSource] = useState<'week' | 'all'>('week');
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [resetState, setResetState] = useState<'idle' | 'confirm' | 'reset'>('idle');
   const [checked, setChecked] = useState<Record<string, boolean>>(() => {
     if (isSupabaseEnabled) return {}; // will be loaded from Supabase
     try {
@@ -20,6 +22,15 @@ function GroceryListPage() {
   });
 
   const isMounted = useRef(false);
+  const copyTimer = useRef<number | null>(null);
+  const resetTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current) window.clearTimeout(copyTimer.current);
+      if (resetTimer.current) window.clearTimeout(resetTimer.current);
+    };
+  }, []);
 
   // Load checked state from Supabase on mount
   useEffect(() => {
@@ -82,25 +93,70 @@ function GroceryListPage() {
     });
   };
 
-  const reset = () => {
-    setChecked({});
-    if (!isSupabaseEnabled) localStorage.removeItem(CHECKED_KEY);
+  const showResetState = (state: 'confirm' | 'reset') => {
+    setResetState(state);
+    if (resetTimer.current) window.clearTimeout(resetTimer.current);
+    resetTimer.current = window.setTimeout(() => setResetState('idle'), state === 'confirm' ? 3200 : 1800);
   };
 
-  const copy = async () => {
-    const text = categories
+  const reset = () => {
+    if (resetState !== 'confirm') {
+      showResetState('confirm');
+      return;
+    }
+
+    setChecked({});
+    if (!isSupabaseEnabled) localStorage.removeItem(CHECKED_KEY);
+    showResetState('reset');
+  };
+
+  const groceryText = useMemo(() => {
+    return categories
       .flatMap(cat => [
-        `${cat.name}:`,
+        cat.name,
         ...cat.items.map(item => {
-          const amount = item.amounts.length ? ` (${item.amounts.join(', ')})` : '';
-          return `- ${item.name}${amount}`;
+          const amount = item.amounts.length ? ` - ${item.amounts.join(', ')}` : '';
+          return `• ${item.name}${amount}`;
         }),
         '',
       ])
       .join('\n')
       .trim();
+  }, [categories]);
 
-    if (text) await navigator.clipboard.writeText(text);
+  const showCopyState = (state: 'copied' | 'failed') => {
+    setCopyState(state);
+    if (copyTimer.current) window.clearTimeout(copyTimer.current);
+    copyTimer.current = window.setTimeout(() => setCopyState('idle'), 1800);
+  };
+
+  const copy = async () => {
+    if (!groceryText) return;
+
+    try {
+      if (navigator.clipboard?.write && window.ClipboardItem) {
+        const plainText = new Blob([groceryText], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'text/plain': plainText }),
+        ]);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(groceryText);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = groceryText;
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      showCopyState('copied');
+    } catch (error) {
+      console.error('Copy failed:', error);
+      showCopyState('failed');
+    }
   };
 
   return (
@@ -108,8 +164,23 @@ function GroceryListPage() {
       <div className="page-toolbar">
         <h1>Grocery List</h1>
         <div className="toolbar-actions">
-          <button type="button" onClick={copy}>Copy</button>
-          <button type="button" onClick={reset}>Reset</button>
+          <button
+            type="button"
+            className={`copy-list-btn ${copyState === 'copied' ? 'copy-list-btn--copied' : ''}`}
+            onClick={copy}
+            disabled={!groceryText}
+            aria-live="polite"
+          >
+            {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
+          </button>
+          <button
+            type="button"
+            className={`reset-list-btn ${resetState === 'confirm' ? 'reset-list-btn--confirm' : ''} ${resetState === 'reset' ? 'reset-list-btn--reset' : ''}`}
+            onClick={reset}
+            aria-live="polite"
+          >
+            {resetState === 'confirm' ? 'Tap again' : resetState === 'reset' ? 'Reset done' : 'Reset'}
+          </button>
         </div>
       </div>
 
