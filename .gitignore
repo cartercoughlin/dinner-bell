@@ -13,6 +13,14 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
+# Python / Django
+__pycache__/
+*.py[cod]
+db.sqlite3
+staticfiles/
+uploads/
+*.egg-info/
+
 # Claude Code
 .claude/
 
