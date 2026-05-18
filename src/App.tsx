@@ -36,7 +36,9 @@ function App() {
       <RecipeProvider>
         <div className="app">
           <header className="app-header">
-            <h1>Dinner Bell</h1>
+            <h1>
+              Dinner Bell <span aria-hidden="true">🔔</span>
+            </h1>
             <nav className="app-nav" aria-label="Primary">
               <NavLink to="/" end>Recipes</NavLink>
               <NavLink to="/calendar">Calendar</NavLink>
