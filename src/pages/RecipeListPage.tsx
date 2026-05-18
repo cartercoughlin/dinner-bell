@@ -8,7 +8,7 @@ function RecipeListPage() {
     <div className="stack">
       <div className="page-toolbar">
         <h1>My Recipes</h1>
-        <div className="toolbar-actions">
+        <div className="toolbar-actions recipe-list-actions">
           <button type="button" className="add-recipe-btn" onClick={() => navigate('/recipe/new')}>
             <span aria-hidden="true">+</span>
             <span>Add Recipe</span>

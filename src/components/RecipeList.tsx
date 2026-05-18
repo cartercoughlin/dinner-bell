@@ -151,31 +151,28 @@ export function RecipeList() {
               <div className="recipe-card-body">
                 <h3>{recipe.title}</h3>
                 <p>{recipe.ingredients.length} ingredients · {recipe.servings} servings</p>
-                {recipe.tags && recipe.tags.length > 0 && (
-                  <div className="tags">
-                    {recipe.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className={`tag ${normalize(tag) === normalize(tagFilter) ? 'tag--active' : ''}`}
-                        onClick={e => { e.stopPropagation(); setTag(tagFilter === tag ? '' : tag); }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="recipe-card-footer">
-                <button
-                  className="make-btn"
-                  onClick={e => { e.stopPropagation(); setMakingRecipe(recipe); }}
-                  aria-label={`Make ${recipe.title}`}
-                >
-                  <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor">
-                    <path d="M3 2.5a.5.5 0 0 1 .757-.429l9 5a.5.5 0 0 1 0 .858l-9 5A.5.5 0 0 1 3 12.5v-10Z" />
-                  </svg>
-                  Make
-                </button>
+                <div className="recipe-card-meta">
+                  {recipe.tags && recipe.tags.length > 0 && (
+                    <div className="tags">
+                      {recipe.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className={`tag ${normalize(tag) === normalize(tagFilter) ? 'tag--active' : ''}`}
+                          onClick={e => { e.stopPropagation(); setTag(tagFilter === tag ? '' : tag); }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    className="make-btn"
+                    onClick={e => { e.stopPropagation(); setMakingRecipe(recipe); }}
+                    aria-label={`Make ${recipe.title}`}
+                  >
+                    Make <span aria-hidden="true">🍳</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
