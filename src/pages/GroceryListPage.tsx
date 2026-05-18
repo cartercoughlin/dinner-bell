@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useRecipes } from '../contexts/RecipeContext';
 import { buildGroceryCategories } from '../utils/grocery';
 import { startOfWeek, toDateKey, addDays } from '../utils/dates';
+import { supabase, isSupabaseEnabled, getUserToken } from '../lib/supabase';
 
 const CHECKED_KEY = 'dinner-bell-grocery-checked';
 
@@ -9,45 +10,88 @@ function GroceryListPage() {
   const { recipes, mealPlans } = useRecipes();
   const [source, setSource] = useState<'week' | 'all'>('week');
   const [checked, setChecked] = useState<Record<string, boolean>>(() => {
-    const stored = localStorage.getItem(CHECKED_KEY);
-    return stored ? JSON.parse(stored) : {};
+    if (isSupabaseEnabled) return {}; // will be loaded from Supabase
+    try {
+      const s = localStorage.getItem(CHECKED_KEY);
+      return s ? JSON.parse(s) : {};
+    } catch {
+      return {};
+    }
   });
+
+  const isMounted = useRef(false);
+
+  // Load checked state from Supabase on mount
+  useEffect(() => {
+    if (!isSupabaseEnabled) return;
+    const token = getUserToken();
+    supabase!
+      .from('grocery_checks')
+      .select('keys')
+      .eq('user_token', token)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.keys) {
+          const obj: Record<string, boolean> = {};
+          (data.keys as string[]).forEach(k => { obj[k] = true; });
+          setChecked(obj);
+        }
+        isMounted.current = true;
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync checked state whenever it changes (skip the initial population)
+  useEffect(() => {
+    if (!isMounted.current) return;
+
+    if (isSupabaseEnabled) {
+      const token = getUserToken();
+      supabase!
+        .from('grocery_checks')
+        .upsert({ user_token: token, keys: Object.keys(checked) })
+        .then(({ error }) => {
+          if (error) console.error('Supabase upsert (grocery_checks) failed:', error);
+        });
+    } else {
+      localStorage.setItem(CHECKED_KEY, JSON.stringify(checked));
+    }
+  }, [checked]);
 
   const selectedRecipes = useMemo(() => {
     if (source === 'all') return recipes;
 
     const weekStart = startOfWeek();
-    const weekDates = new Set(Array.from({ length: 7 }, (_, index) => toDateKey(addDays(weekStart, index))));
+    const weekDates = new Set(
+      Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)))
+    );
     const recipeIds = new Set(
       mealPlans
-        .filter((mealPlan) => weekDates.has(mealPlan.date))
-        .map((mealPlan) => mealPlan.recipeId)
+        .filter(mp => weekDates.has(mp.date))
+        .map(mp => mp.recipeId)
     );
-
-    return recipes.filter((recipe) => recipeIds.has(recipe.id));
+    return recipes.filter(r => recipeIds.has(r.id));
   }, [mealPlans, recipes, source]);
 
   const categories = useMemo(() => buildGroceryCategories(selectedRecipes), [selectedRecipes]);
 
   const toggleItem = (key: string) => {
-    setChecked((prev) => {
+    setChecked(prev => {
       const next = { ...prev, [key]: !prev[key] };
       if (!next[key]) delete next[key];
-      localStorage.setItem(CHECKED_KEY, JSON.stringify(next));
       return next;
     });
   };
 
   const reset = () => {
-    localStorage.removeItem(CHECKED_KEY);
     setChecked({});
+    if (!isSupabaseEnabled) localStorage.removeItem(CHECKED_KEY);
   };
 
   const copy = async () => {
     const text = categories
-      .flatMap((category) => [
-        `${category.name}:`,
-        ...category.items.map((item) => {
+      .flatMap(cat => [
+        `${cat.name}:`,
+        ...cat.items.map(item => {
           const amount = item.amounts.length ? ` (${item.amounts.join(', ')})` : '';
           return `- ${item.name}${amount}`;
         }),
@@ -85,10 +129,10 @@ function GroceryListPage() {
         </div>
       ) : (
         <div className="grocery-categories">
-          {categories.map((category) => (
+          {categories.map(category => (
             <section className="grocery-category" key={category.name}>
               <h2>{category.name}</h2>
-              {category.items.map((item) => (
+              {category.items.map(item => (
                 <label className={`grocery-item ${checked[item.key] ? 'checked' : ''}`} key={item.key}>
                   <input
                     type="checkbox"
@@ -111,4 +155,3 @@ function GroceryListPage() {
 }
 
 export default GroceryListPage;
-
