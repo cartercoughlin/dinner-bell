@@ -85,6 +85,38 @@ body {
   -webkit-backdrop-filter: blur(20px) saturate(1.8);
 }
 
+.app-header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.app-header-title-row h1 {
+  margin: 0;
+}
+
+.share-household-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  background: var(--surface-strong);
+  border: none;
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.share-household-btn:hover {
+  opacity: 1;
+  background: rgba(0, 122, 255, 0.12);
+  color: var(--primary);
+}
+
 .app-header h1 {
   margin-bottom: var(--space-4);
   color: var(--text);
@@ -1785,4 +1817,184 @@ button:active {
 .floating-timer-btn--cancel {
   padding: 3px 9px;
   font-size: 0.8rem;
+}
+
+/* ── Family Sharing Sheet ──────────────────────────────────────────────── */
+
+.sharing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.sharing-sheet {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -4px 32px rgba(0,0,0,0.14);
+  animation: sheet-up 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); opacity: 0.6; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.sharing-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--surface-strong);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+
+.sharing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+}
+
+.sharing-header h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.sharing-body {
+  padding: 0 var(--space-5) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.sharing-description {
+  width: 100%;
+  font-size: 0.92rem;
+  color: var(--muted);
+  line-height: 1.55;
+  text-align: center;
+}
+
+.sharing-qr {
+  background: #fff;
+  border-radius: 16px;
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.sharing-link-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--surface-strong);
+  border-radius: 10px;
+  padding: 10px var(--space-3);
+}
+
+.sharing-link-text {
+  flex: 1;
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-family: ui-monospace, monospace;
+}
+
+.sharing-copy-btn {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.sharing-copy-btn--copied {
+  background: var(--success);
+}
+
+.sharing-note {
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── Join Page ─────────────────────────────────────────────────────────── */
+
+.join-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--background);
+}
+
+.join-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.join-icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.join-card h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.join-card p {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.join-summary strong {
+  color: var(--text);
+}
+
+.join-note {
+  font-size: 0.82rem !important;
+  color: var(--muted);
+}
+
+.join-actions {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+  justify-content: center;
+}
+
+.join-actions .primary-btn,
+.join-actions .secondary-btn {
+  flex: 1;
 }

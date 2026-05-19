@@ -19,6 +19,11 @@ export function getUserToken(): string {
   return token;
 }
 
+/** Switch this device to a different household token and reload. */
+export function setUserToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
 // ── Row ↔ domain mappers ─────────────────────────────────────────────────
 
 export function recipeToRow(recipe: Recipe, userToken: string) {
