@@ -207,6 +207,15 @@ main {
 
 .add-recipe-btn {
   gap: var(--space-2);
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.add-recipe-btn:hover {
+  opacity: 1;
+  background: var(--primary-pressed);
+  border-color: var(--primary-pressed);
 }
 
 .add-recipe-btn span:first-child {
@@ -1135,9 +1144,6 @@ button:active {
     width: 100%;
     min-height: 48px;
     padding: 0 var(--space-4);
-    border-color: var(--primary);
-    background: var(--primary);
-    color: #fff;
   }
 
   .recipe-search {
@@ -1997,4 +2003,41 @@ button:active {
 .join-actions .primary-btn,
 .join-actions .secondary-btn {
   flex: 1;
+}
+
+/* ── URL Import feedback ───────────────────────────────────────────────── */
+
+.import-btn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.import-success-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--success) 35%, transparent);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  color: #166534;
+  animation: banner-in 250ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.import-success-banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--success);
+}
+
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

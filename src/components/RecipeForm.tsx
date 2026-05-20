@@ -32,6 +32,7 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
   const [importUrl, setImportUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState('');
+  const [importedTitle, setImportedTitle] = useState<string | null>(null);
 
   // Ingredient bulk parse state
   const [bulkIngredientsText, setBulkIngredientsText] = useState('');
@@ -170,6 +171,7 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
 
       setImportUrl('');
       setImportError('');
+      setImportedTitle(recipe.title || 'Recipe');
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Failed to import recipe. Please try again.');
     } finally {
@@ -250,11 +252,12 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
               type="url"
               placeholder="https://example.com/recipe"
               value={importUrl}
-              onChange={(e) => setImportUrl(e.target.value)}
+              onChange={(e) => { setImportUrl(e.target.value); setImportedTitle(null); }}
               onPaste={(e) => {
                 const pastedUrl = e.clipboardData.getData('text').trim();
                 if (pastedUrl && (pastedUrl.startsWith('http://') || pastedUrl.startsWith('https://'))) {
                   setImportUrl(pastedUrl);
+                  setImportedTitle(null);
                   handleImportFromUrl(pastedUrl);
                 }
               }}
@@ -266,11 +269,32 @@ function RecipeForm({ initialData, onSubmit, onCancel }: RecipeFormProps) {
               }}
               disabled={isImporting}
             />
-            <button className="primary-btn" type="button" onClick={() => handleImportFromUrl()} disabled={isImporting}>
-              {isImporting ? 'Importing' : 'Import'}
+            <button
+              className="primary-btn"
+              type="button"
+              onClick={() => handleImportFromUrl()}
+              disabled={isImporting}
+              aria-label={isImporting ? 'Importing recipe…' : 'Import recipe from URL'}
+              style={{ gap: 8, minWidth: 96 }}
+            >
+              {isImporting ? (
+                <>
+                  <span className="import-btn-spinner" aria-hidden="true" />
+                  Importing
+                </>
+              ) : 'Import'}
             </button>
           </div>
           {importError && <p className="form-error">{importError}</p>}
+          {importedTitle && (
+            <div className="import-success-banner" role="status">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="8" cy="8" r="7" />
+                <polyline points="5 8.5 7 10.5 11 6" />
+              </svg>
+              <span><strong>"{importedTitle}"</strong> imported — review the fields below and tap <strong>Save Recipe</strong>.</span>
+            </div>
+          )}
         </div>
 
         <div className="recipe-import-photo">
