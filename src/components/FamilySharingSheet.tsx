@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { getUserToken, isSupabaseEnabled } from '../lib/supabase';
+import { getFamilyInviteBaseUrl, getUserToken, isSupabaseEnabled } from '../lib/supabase';
 
 interface Props {
   onClose: () => void;
@@ -9,10 +9,12 @@ interface Props {
 
 export function FamilySharingSheet({ onClose }: Props) {
   const token = getUserToken();
-  const joinUrl = `${window.location.origin}/join/${token}`;
+  const inviteBaseUrl = getFamilyInviteBaseUrl();
+  const joinUrl = inviteBaseUrl ? `${inviteBaseUrl}/join/${encodeURIComponent(token)}` : '';
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 
   const copy = async () => {
+    if (!joinUrl) return;
     try {
       await navigator.clipboard.writeText(joinUrl);
     } catch {
@@ -45,6 +47,10 @@ export function FamilySharingSheet({ onClose }: Props) {
         {!isSupabaseEnabled ? (
           <div className="sharing-body">
             <p className="sharing-note">Cloud sync is not configured. Family sharing requires cloud sync to be enabled.</p>
+          </div>
+        ) : !joinUrl ? (
+          <div className="sharing-body">
+            <p className="sharing-note">Set VITE_PUBLIC_APP_URL to your deployed Dinner Bell URL before building the iOS app so invite links can open outside Capacitor.</p>
           </div>
         ) : (
           <div className="sharing-body">

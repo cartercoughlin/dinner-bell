@@ -5,16 +5,163 @@ import { startOfWeek, toDateKey, addDays } from '../utils/dates';
 import { supabase, isSupabaseEnabled, getUserToken } from '../lib/supabase';
 
 const CHECKED_KEY = 'dinner-bell-grocery-checked';
+const CUSTOM_ITEMS_KEY = 'dinner-bell-grocery-custom';
+const DELETED_ITEMS_KEY = 'dinner-bell-grocery-deleted';
+const RENAMED_ITEMS_KEY = 'dinner-bell-grocery-renamed';
+
+type CustomItem = { name: string; key: string };
+
+type GroceryItemView = {
+  key: string;
+  name: string;
+  amounts: string[];
+  recipes: string[];
+};
+
+type GroceryCategoryView = {
+  name: string;
+  items: GroceryItemView[];
+};
+
+const FRACTION_VALUES: Record<string, number> = {
+  '1/8': 0.125,
+  '1/4': 0.25,
+  '1/3': 1 / 3,
+  '1/2': 0.5,
+  '2/3': 2 / 3,
+  '3/4': 0.75,
+};
+
+const UNIT_ALIASES: Record<string, string> = {
+  cups: 'cup',
+  tablespoons: 'tbsp',
+  tablespoon: 'tbsp',
+  tbsp: 'tbsp',
+  teaspoons: 'tsp',
+  teaspoon: 'tsp',
+  tsp: 'tsp',
+  pounds: 'lb',
+  pound: 'lb',
+  lbs: 'lb',
+  ounces: 'oz',
+  ounce: 'oz',
+  oz: 'oz',
+  cloves: 'clove',
+  cans: 'can',
+};
+
+function normalizeGroceryName(name: string) {
+  return name.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function parseAmountLabel(label: string) {
+  const parts = label.trim().split(/\s+/);
+  if (parts.length === 0) return null;
+
+  let value = 0;
+  let index = 0;
+  while (index < parts.length) {
+    const part = parts[index];
+    if (FRACTION_VALUES[part]) {
+      value += FRACTION_VALUES[part];
+      index += 1;
+      continue;
+    }
+
+    const fraction = part.match(/^(\d+)\/(\d+)$/);
+    if (fraction) {
+      value += Number(fraction[1]) / Number(fraction[2]);
+      index += 1;
+      continue;
+    }
+
+    const number = Number(part);
+    if (!Number.isNaN(number)) {
+      value += number;
+      index += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  if (index === 0 || value <= 0) return null;
+  const unit = parts.slice(index).join(' ').trim().toLowerCase();
+  return { value, unit: UNIT_ALIASES[unit] ?? unit };
+}
+
+function formatAmount(value: number) {
+  const whole = Math.floor(value);
+  const remainder = value - whole;
+  const fraction = Object.entries(FRACTION_VALUES).find(([, amount]) => Math.abs(amount - remainder) < 0.01)?.[0];
+
+  if (fraction && whole > 0) return `${whole} ${fraction}`;
+  if (fraction) return fraction;
+  if (Math.abs(value - Math.round(value)) < 0.01) return String(Math.round(value));
+  return String(Number(value.toFixed(2)));
+}
+
+function combineAmounts(amounts: string[]) {
+  const totals = new Map<string, number>();
+  const passthrough: string[] = [];
+
+  amounts.forEach((amount) => {
+    const parsed = parseAmountLabel(amount);
+    if (!parsed) {
+      passthrough.push(amount);
+      return;
+    }
+    totals.set(parsed.unit, (totals.get(parsed.unit) ?? 0) + parsed.value);
+  });
+
+  return [
+    ...Array.from(totals.entries()).map(([unit, value]) =>
+      [formatAmount(value), unit].filter(Boolean).join(' ')
+    ),
+    ...passthrough,
+  ];
+}
 
 function GroceryListPage() {
   const { recipes, mealPlans } = useRecipes();
   const [source, setSource] = useState<'week' | 'all'>('week');
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [resetState, setResetState] = useState<'idle' | 'confirm' | 'reset'>('idle');
+  const [newItem, setNewItem] = useState('');
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+  const editRef = useRef<HTMLInputElement>(null);
   const [checked, setChecked] = useState<Record<string, boolean>>(() => {
-    if (isSupabaseEnabled) return {}; // will be loaded from Supabase
+    if (isSupabaseEnabled) return {};
     try {
       const s = localStorage.getItem(CHECKED_KEY);
+      return s ? JSON.parse(s) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [customItems, setCustomItems] = useState<CustomItem[]>(() => {
+    if (isSupabaseEnabled) return [];
+    try {
+      const s = localStorage.getItem(CUSTOM_ITEMS_KEY);
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [deletedKeys, setDeletedKeys] = useState<Set<string>>(() => {
+    if (isSupabaseEnabled) return new Set();
+    try {
+      const s = localStorage.getItem(DELETED_ITEMS_KEY);
+      return s ? new Set(JSON.parse(s)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [renamedItems, setRenamedItems] = useState<Record<string, string>>(() => {
+    if (isSupabaseEnabled) return {};
+    try {
+      const s = localStorage.getItem(RENAMED_ITEMS_KEY);
       return s ? JSON.parse(s) : {};
     } catch {
       return {};
@@ -32,13 +179,13 @@ function GroceryListPage() {
     };
   }, []);
 
-  // Load checked state from Supabase on mount
+  // Load all grocery state from Supabase on mount
   useEffect(() => {
     if (!isSupabaseEnabled) return;
     const token = getUserToken();
     supabase!
       .from('grocery_checks')
-      .select('keys')
+        .select('keys, custom_items, deleted_keys, renamed_items')
       .eq('user_token', token)
       .maybeSingle()
       .then(({ data }) => {
@@ -47,14 +194,22 @@ function GroceryListPage() {
           (data.keys as string[]).forEach(k => { obj[k] = true; });
           setChecked(obj);
         }
+        if (data?.custom_items) {
+          setCustomItems(data.custom_items as CustomItem[]);
+        }
+        if (data?.deleted_keys) {
+          setDeletedKeys(new Set(data.deleted_keys as string[]));
+        }
+        if (data?.renamed_items) {
+          setRenamedItems(data.renamed_items as Record<string, string>);
+        }
         isMounted.current = true;
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync checked state whenever it changes (skip the initial population)
+  // Sync checked state
   useEffect(() => {
     if (!isMounted.current) return;
-
     if (isSupabaseEnabled) {
       const token = getUserToken();
       supabase!
@@ -68,9 +223,63 @@ function GroceryListPage() {
     }
   }, [checked]);
 
+  // Sync custom items
+  useEffect(() => {
+    if (!isMounted.current && isSupabaseEnabled) return;
+    if (isSupabaseEnabled) {
+      const token = getUserToken();
+      supabase!
+        .from('grocery_checks')
+        .upsert({ user_token: token, custom_items: customItems })
+        .then(({ error }) => {
+          if (error) console.error('Supabase upsert (custom_items) failed:', error);
+        });
+    } else {
+      localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(customItems));
+    }
+  }, [customItems]);
+
+  // Sync deleted keys
+  useEffect(() => {
+    if (!isMounted.current && isSupabaseEnabled) return;
+    if (isSupabaseEnabled) {
+      const token = getUserToken();
+      supabase!
+        .from('grocery_checks')
+        .upsert({ user_token: token, deleted_keys: [...deletedKeys] })
+        .then(({ error }) => {
+          if (error) console.error('Supabase upsert (deleted_keys) failed:', error);
+        });
+    } else {
+      localStorage.setItem(DELETED_ITEMS_KEY, JSON.stringify([...deletedKeys]));
+    }
+  }, [deletedKeys]);
+
+  // Sync renamed items
+  useEffect(() => {
+    if (!isMounted.current && isSupabaseEnabled) return;
+    if (isSupabaseEnabled) {
+      const token = getUserToken();
+      supabase!
+        .from('grocery_checks')
+        .upsert({ user_token: token, renamed_items: renamedItems })
+        .then(({ error }) => {
+          if (error) console.error('Supabase upsert (renamed_items) failed:', error);
+        });
+    } else {
+      localStorage.setItem(RENAMED_ITEMS_KEY, JSON.stringify(renamedItems));
+    }
+  }, [renamedItems]);
+
+  useEffect(() => {
+    if (editingKey && editRef.current) {
+      editRef.current.focus();
+      editRef.current.select();
+    }
+  }, [editingKey]);
+
   const selectedRecipes = useMemo(() => {
     if (source === 'all') return recipes;
-
     const weekStart = startOfWeek();
     const weekDates = new Set(
       Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)))
@@ -83,7 +292,67 @@ function GroceryListPage() {
     return recipes.filter(r => recipeIds.has(r.id));
   }, [mealPlans, recipes, source]);
 
-  const categories = useMemo(() => buildGroceryCategories(selectedRecipes), [selectedRecipes]);
+  const categories = useMemo<GroceryCategoryView[]>(() => {
+    const base = buildGroceryCategories(selectedRecipes);
+    const grouped = new Map<string, GroceryItemView & { category: string }>();
+
+    base.forEach((category) => {
+      category.items
+        .filter(item => !deletedKeys.has(item.key))
+        .forEach((item) => {
+          const name = renamedItems[item.key] ?? item.name;
+          const groupKey = normalizeGroceryName(name);
+          const existing = grouped.get(groupKey);
+          if (existing) {
+            existing.key = `${existing.key}|${item.key}`;
+            existing.amounts.push(...item.amounts);
+            existing.recipes.push(...item.recipes);
+          } else {
+            grouped.set(groupKey, {
+              key: item.key,
+              name,
+              amounts: [...item.amounts],
+              recipes: [...item.recipes],
+              category: category.name,
+            });
+          }
+        });
+    });
+
+    if (customItems.length > 0) {
+      customItems.forEach((customItem) => {
+        const groupKey = normalizeGroceryName(customItem.name);
+        const existing = grouped.get(groupKey);
+        if (existing) {
+          existing.key = `${existing.key}|${customItem.key}`;
+        } else {
+          grouped.set(groupKey, {
+            key: customItem.key,
+            name: customItem.name,
+            amounts: [],
+            recipes: [],
+            category: 'Added Items',
+          });
+        }
+      });
+    }
+
+    const byCategory = new Map<string, GroceryItemView[]>();
+    grouped.forEach(({ category, ...item }) => {
+      const categoryItems = byCategory.get(category) ?? [];
+      categoryItems.push({
+        ...item,
+        amounts: combineAmounts(item.amounts),
+        recipes: Array.from(new Set(item.recipes)).sort(),
+      });
+      byCategory.set(category, categoryItems);
+    });
+
+    return Array.from(byCategory.entries()).map(([name, items]) => ({
+      name,
+      items: items.sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  }, [selectedRecipes, customItems, deletedKeys, renamedItems]);
 
   const toggleItem = (key: string) => {
     setChecked(prev => {
@@ -91,6 +360,64 @@ function GroceryListPage() {
       if (!next[key]) delete next[key];
       return next;
     });
+  };
+
+  const deleteItem = (key: string) => {
+    const keys = key.split('|');
+    setCustomItems(prev => prev.filter(ci => !keys.includes(ci.key)));
+    setDeletedKeys(prev => {
+      const next = new Set(prev);
+      keys
+        .filter(itemKey => !customItems.some(ci => ci.key === itemKey))
+        .forEach(itemKey => next.add(itemKey));
+      return next;
+    });
+    setRenamedItems(prev => {
+      const next = { ...prev };
+      keys.forEach(itemKey => delete next[itemKey]);
+      return next;
+    });
+    setChecked(prev => {
+      const next = { ...prev };
+      keys.forEach(itemKey => delete next[itemKey]);
+      return next;
+    });
+  };
+
+  const startEditing = (key: string, name: string) => {
+    setEditingKey(key);
+    setEditingValue(name);
+  };
+
+  const commitEdit = () => {
+    if (!editingKey) return;
+    const trimmed = editingValue.trim();
+    if (!trimmed) {
+      deleteItem(editingKey);
+    } else {
+      const keys = editingKey.split('|');
+      setCustomItems(prev => prev.map(ci =>
+        keys.includes(ci.key) ? { ...ci, name: trimmed, key: `custom:${normalizeGroceryName(trimmed)}` } : ci
+      ));
+      setRenamedItems(prev => {
+        const next = { ...prev };
+        keys
+          .filter(itemKey => !itemKey.startsWith('custom:'))
+          .forEach(itemKey => { next[itemKey] = trimmed; });
+        return next;
+      });
+    }
+    setEditingKey(null);
+    setEditingValue('');
+  };
+
+  const addItem = () => {
+    const name = newItem.trim();
+    if (!name) return;
+    const key = `custom:${name.toLowerCase()}`;
+    if (customItems.some(ci => ci.key === key)) return;
+    setCustomItems(prev => [...prev, { name, key }]);
+    setNewItem('');
   };
 
   const showResetState = (state: 'confirm' | 'reset') => {
@@ -104,11 +431,31 @@ function GroceryListPage() {
       showResetState('confirm');
       return;
     }
-
     setChecked({});
-    if (!isSupabaseEnabled) localStorage.removeItem(CHECKED_KEY);
+    setCustomItems([]);
+    setDeletedKeys(new Set());
+    setRenamedItems({});
+    if (isSupabaseEnabled) {
+      const token = getUserToken();
+      supabase!
+        .from('grocery_checks')
+        .upsert({ user_token: token, keys: [], custom_items: [], deleted_keys: [], renamed_items: {} })
+        .then(({ error }) => {
+          if (error) console.error('Supabase reset (grocery_checks) failed:', error);
+        });
+    } else {
+      localStorage.removeItem(CHECKED_KEY);
+      localStorage.removeItem(CUSTOM_ITEMS_KEY);
+      localStorage.removeItem(DELETED_ITEMS_KEY);
+      localStorage.removeItem(RENAMED_ITEMS_KEY);
+    }
     showResetState('reset');
   };
+
+  const allItems = useMemo(() =>
+    categories.flatMap(cat => cat.items.map(item => ({ ...item, category: cat.name }))),
+    [categories]
+  );
 
   const groceryText = useMemo(() => {
     return categories
@@ -116,7 +463,7 @@ function GroceryListPage() {
         cat.name,
         ...cat.items.map(item => {
           const amount = item.amounts.length ? ` - ${item.amounts.join(', ')}` : '';
-          return `• ${item.name}${amount}`;
+          return `  ${item.name}${amount}`;
         }),
         '',
       ])
@@ -132,13 +479,10 @@ function GroceryListPage() {
 
   const copy = async () => {
     if (!groceryText) return;
-
     try {
       if (navigator.clipboard?.write && window.ClipboardItem) {
         const plainText = new Blob([groceryText], { type: 'text/plain' });
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'text/plain': plainText }),
-        ]);
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': plainText })]);
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(groceryText);
       } else {
@@ -166,20 +510,20 @@ function GroceryListPage() {
         <div className="toolbar-actions">
           <button
             type="button"
-            className={`copy-list-btn ${copyState === 'copied' ? 'copy-list-btn--copied' : ''}`}
+            className={`secondary-btn grocery-toolbar-btn ${copyState === 'copied' ? 'copy-list-btn--copied' : ''}`}
             onClick={copy}
             disabled={!groceryText}
             aria-live="polite"
           >
-            {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
+            {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Failed' : 'Copy'}
           </button>
           <button
             type="button"
-            className={`reset-list-btn ${resetState === 'confirm' ? 'reset-list-btn--confirm' : ''} ${resetState === 'reset' ? 'reset-list-btn--reset' : ''}`}
+            className={`secondary-btn grocery-toolbar-btn ${resetState === 'confirm' ? 'reset-list-btn--confirm' : ''} ${resetState === 'reset' ? 'reset-list-btn--reset' : ''}`}
             onClick={reset}
             aria-live="polite"
           >
-            {resetState === 'confirm' ? 'Tap again' : resetState === 'reset' ? 'Reset done' : 'Reset'}
+            {resetState === 'confirm' ? 'Tap again' : resetState === 'reset' ? 'Done' : 'Reset'}
           </button>
         </div>
       </div>
@@ -193,31 +537,73 @@ function GroceryListPage() {
         </button>
       </div>
 
-      {categories.length === 0 ? (
+      <form
+        className="grocery-add-row"
+        onSubmit={(e) => { e.preventDefault(); addItem(); }}
+      >
+        <span className="grocery-add-icon">+</span>
+        <input
+          type="text"
+          className="grocery-add-input"
+          placeholder="Add item..."
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+        />
+      </form>
+
+      {allItems.length === 0 ? (
         <div className="empty-state">
           <h2>No grocery items</h2>
-          <p>Add meals to the calendar or switch to all recipes.</p>
+          <p>Add meals to the calendar or add items above.</p>
         </div>
       ) : (
-        <div className="grocery-categories">
+        <div className="grocery-list">
           {categories.map(category => (
-            <section className="grocery-category" key={category.name}>
-              <h2>{category.name}</h2>
+            <div key={category.name}>
+              <div className="grocery-section-label">{category.name}</div>
               {category.items.map(item => (
-                <label className={`grocery-item ${checked[item.key] ? 'checked' : ''}`} key={item.key}>
+                <div className={`grocery-row ${checked[item.key] ? 'is-checked' : ''}`} key={item.key}>
                   <input
                     type="checkbox"
+                    className="grocery-check"
                     checked={Boolean(checked[item.key])}
                     onChange={() => toggleItem(item.key)}
                   />
-                  <span>
-                    <strong>{item.name}</strong>
-                    {item.amounts.length > 0 && <em>{item.amounts.join(', ')}</em>}
-                    <small>{item.recipes.join(', ')}</small>
-                  </span>
-                </label>
+                  {editingKey === item.key ? (
+                    <input
+                      ref={editRef}
+                      type="text"
+                      className="grocery-edit-input"
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={commitEdit}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitEdit();
+                        if (e.key === 'Escape') { setEditingKey(null); setEditingValue(''); }
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="grocery-row-content"
+                      onClick={() => startEditing(item.key, item.name)}
+                    >
+                      <span className="grocery-row-name">{item.name}</span>
+                      {item.amounts.length > 0 && (
+                        <span className="grocery-row-detail">{item.amounts.join(', ')}</span>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="grocery-remove-btn"
+                    aria-label={`Remove ${item.name}`}
+                    onClick={() => deleteItem(item.key)}
+                  >
+                    &minus;
+                  </button>
+                </div>
               ))}
-            </section>
+            </div>
           ))}
         </div>
       )}

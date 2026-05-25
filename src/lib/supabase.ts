@@ -8,6 +8,7 @@ export const supabase = url && key ? createClient(url, key) : null;
 export const isSupabaseEnabled = supabase !== null;
 
 const TOKEN_KEY = 'dinner-bell-user-token';
+const PUBLIC_APP_URL = import.meta.env.VITE_PUBLIC_APP_URL as string | undefined;
 
 /** Stable per-device UUID — the "account" until real auth is added. */
 export function getUserToken(): string {
@@ -22,6 +23,14 @@ export function getUserToken(): string {
 /** Switch this device to a different household token and reload. */
 export function setUserToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getFamilyInviteBaseUrl(): string | null {
+  if (PUBLIC_APP_URL?.trim()) return PUBLIC_APP_URL.replace(/\/+$/, '');
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    return window.location.origin;
+  }
+  return null;
 }
 
 // ── Row ↔ domain mappers ─────────────────────────────────────────────────

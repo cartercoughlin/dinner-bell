@@ -47,34 +47,83 @@ export default function JoinPage() {
 
     try {
       const myToken = getUserToken();
+      const recipeIdMap = new Map<string, string>();
 
-      const [{ data: targetRows }, { data: myRows }] = await Promise.all([
+      const [{ data: targetRows }, { data: myRows }, { data: targetMealRows }, { data: myMealRows }, { data: targetGrocery }, { data: myGrocery }] = await Promise.all([
         supabase!.from('recipes').select('*').eq('user_token', token),
         supabase!.from('recipes').select('*').eq('user_token', myToken),
+        supabase!.from('meal_plans').select('*').eq('user_token', token),
+        supabase!.from('meal_plans').select('*').eq('user_token', myToken),
+        supabase!.from('grocery_checks').select('keys, custom_items, deleted_keys, renamed_items').eq('user_token', token).maybeSingle(),
+        supabase!.from('grocery_checks').select('keys, custom_items, deleted_keys, renamed_items').eq('user_token', myToken).maybeSingle(),
       ]);
 
       const targetTitles = new Set(
         (targetRows ?? []).map((r: { title: string }) => r.title.toLowerCase().trim())
       );
+      (targetRows ?? []).forEach((r: { id: string; title: string }) => {
+        recipeIdMap.set(r.id, r.id);
+        recipeIdMap.set(r.title.toLowerCase().trim(), r.id);
+      });
 
       const toMerge = (myRows ?? []).filter(
         (r: { title: string }) => !targetTitles.has(r.title.toLowerCase().trim())
       );
 
       if (toMerge.length > 0) {
-        const newRows = toMerge.map((r: Record<string, unknown>) => ({
-          ...r,
-          id: crypto.randomUUID(),
-          user_token: token,
-          created_at: new Date().toISOString(),
-        }));
+        const newRows = toMerge.map((r: Record<string, unknown>) => {
+          const id = crypto.randomUUID();
+          recipeIdMap.set(String(r.id), id);
+          recipeIdMap.set(String(r.title).toLowerCase().trim(), id);
+          return {
+            ...r,
+            id,
+            user_token: token,
+            created_at: new Date().toISOString(),
+          };
+        });
         const { error } = await supabase!.from('recipes').insert(newRows);
         if (error) throw error;
       }
 
+      const targetMealIds = new Set((targetMealRows ?? []).map((row: { id: string }) => row.id));
+      const mealRowsToMerge = (myMealRows ?? [])
+        .filter((row: { id: string }) => !targetMealIds.has(row.id))
+        .map((row: Record<string, unknown>) => ({
+          ...row,
+          user_token: token,
+          recipe_id: recipeIdMap.get(String(row.recipe_id)) ?? row.recipe_id,
+        }));
+
+      if (mealRowsToMerge.length > 0) {
+        const { error } = await supabase!.from('meal_plans').insert(mealRowsToMerge);
+        if (error) throw error;
+      }
+
+      const mergedGrocery = {
+        user_token: token,
+        keys: Array.from(new Set([...(targetGrocery?.keys ?? []), ...(myGrocery?.keys ?? [])])),
+        custom_items: [
+          ...(targetGrocery?.custom_items ?? []),
+          ...(myGrocery?.custom_items ?? []).filter((item: { key: string }) =>
+            !(targetGrocery?.custom_items ?? []).some((existing: { key: string }) => existing.key === item.key)
+          ),
+        ],
+        deleted_keys: Array.from(new Set([...(targetGrocery?.deleted_keys ?? []), ...(myGrocery?.deleted_keys ?? [])])),
+        renamed_items: {
+          ...(targetGrocery?.renamed_items ?? {}),
+          ...(myGrocery?.renamed_items ?? {}),
+        },
+      };
+      const { error: groceryError } = await supabase!.from('grocery_checks').upsert(mergedGrocery);
+      if (groceryError) throw groceryError;
+
       setUserToken(token);
       setPhase('done');
-      setTimeout(() => { window.location.href = '/'; }, 1500);
+      setTimeout(() => {
+        navigate('/', { replace: true });
+        window.location.reload();
+      }, 1500);
     } catch (e: unknown) {
       setPhase('error');
       setErrorMsg(e instanceof Error ? e.message : 'Something went wrong during merge.');
