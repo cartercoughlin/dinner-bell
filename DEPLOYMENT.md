@@ -103,6 +103,7 @@ Create `.env.production` in your project root:
 VITE_API_URL=https://your-backend-url.railway.app
 # or
 VITE_API_URL=https://your-backend-url.onrender.com
+VITE_PUBLIC_APP_URL=https://dinner-bell.onrender.com
 ```
 
 **3. Deploy via Vercel Dashboard**
@@ -112,6 +113,9 @@ VITE_API_URL=https://your-backend-url.onrender.com
 - Add environment variable:
   - Name: `VITE_API_URL`
   - Value: Your Railway/Render backend URL
+- Add environment variable:
+  - Name: `VITE_PUBLIC_APP_URL`
+  - Value: `https://dinner-bell.onrender.com`
 - Deploy!
 
 **4. Deploy via CLI**
@@ -165,6 +169,8 @@ Frontend runs on `http://localhost:5173`
 ✅ **Works out of the box** once backend is deployed to Railway/Render
 
 The mobile browser will make requests to your deployed backend URL (e.g., `https://dinner-bell-api.railway.app`), not localhost.
+
+For iOS/Capacitor builds, set `VITE_PUBLIC_APP_URL=https://dinner-bell.onrender.com` before `npm run build` and `npx cap sync ios`. Family invite links use this URL because the native app runs at `capacitor://localhost`.
 
 ---
 

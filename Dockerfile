@@ -7,8 +7,10 @@ COPY . .
 # Supabase anon key + URL are public-facing by design — safe to bake in
 ARG VITE_SUPABASE_URL=https://zigtbxnhlmdgwfmfdluk.supabase.co
 ARG VITE_SUPABASE_ANON_KEY=sb_publishable_WuMmkOJWVnEaXuiZlmiIzw__FxmjvHG
+ARG VITE_PUBLIC_APP_URL=https://dinner-bell.onrender.com
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_PUBLIC_APP_URL=$VITE_PUBLIC_APP_URL
 RUN npm run build
 
 # ── Stage 2: Django backend ───────────────────────────────────────────────

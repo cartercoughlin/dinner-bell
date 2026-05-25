@@ -8,5 +8,7 @@ services:
         value: "False"
       - key: ALLOWED_HOSTS
         value: dinner-bell.onrender.com,localhost,127.0.0.1
+      - key: VITE_PUBLIC_APP_URL
+        value: https://dinner-bell.onrender.com
     healthCheckPath: /health
     autoDeploy: true
