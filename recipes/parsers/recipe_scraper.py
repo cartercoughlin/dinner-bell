@@ -2,6 +2,7 @@ import json
 import re
 import time
 import random
+from html import unescape as html_unescape
 from urllib.parse import urlparse, quote
 
 import requests
@@ -42,21 +43,38 @@ def _build_headers(url, user_agent):
     }
 
 
-def _fetch_html(url, fresh_ua=False):
+def _fetch_html(url, session, fresh_ua=False):
     ua = _pick_user_agent() if fresh_ua else USER_AGENTS[0]
     headers = _build_headers(url, ua)
-    resp = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+    resp = session.get(url, headers=headers, timeout=15, allow_redirects=True)
     resp.raise_for_status()
+    # Use detected encoding, falling back to utf-8 to avoid mojibake
+    resp.encoding = resp.apparent_encoding or 'utf-8'
     return resp.text
+
+
+def _try_wayback_machine(url, session):
+    """Fetch via Internet Archive Wayback Machine — bypasses Cloudflare/CDN caches."""
+    try:
+        api_url = f'https://archive.org/wayback/available?url={quote(url)}'
+        r = session.get(api_url, timeout=10)
+        r.raise_for_status()
+        snapshot = r.json().get('archived_snapshots', {}).get('closest', {})
+        if snapshot.get('available') and snapshot.get('url'):
+            return _fetch_html(snapshot['url'], session)
+    except Exception:
+        pass
+    return None
 
 
 def parse_recipe_from_url(url):
     """Try up to 3 strategies to fetch and parse a recipe from a URL."""
     errors = []
+    session = requests.Session()
 
     # Attempt 1: Direct fetch
     try:
-        html = _fetch_html(url)
+        html = _fetch_html(url, session)
         recipe = _extract_recipe(html, url)
         if recipe:
             return recipe
@@ -67,7 +85,7 @@ def parse_recipe_from_url(url):
     # Attempt 2: Retry with different UA
     time.sleep(1)
     try:
-        html = _fetch_html(url, fresh_ua=True)
+        html = _fetch_html(url, session, fresh_ua=True)
         recipe = _extract_recipe(html, url)
         if recipe:
             return recipe
@@ -75,16 +93,18 @@ def parse_recipe_from_url(url):
     except Exception as e:
         errors.append(f'Retry failed: {e}')
 
-    # Attempt 3: Google webcache
+    # Attempt 3: Wayback Machine snapshot (bypasses bot detection on popular recipe sites)
     try:
-        cache_url = f'https://webcache.googleusercontent.com/search?q=cache:{quote(url)}'
-        html = _fetch_html(cache_url)
-        recipe = _extract_recipe(html, url)
-        if recipe:
-            return recipe
-        errors.append('Google cache returned HTML but recipe data was incomplete')
+        html = _try_wayback_machine(url, session)
+        if html:
+            recipe = _extract_recipe(html, url)
+            if recipe:
+                return recipe
+            errors.append('Wayback Machine returned HTML but recipe data was incomplete')
+        else:
+            errors.append('Wayback Machine: no snapshot available')
     except Exception as e:
-        errors.append(f'Google cache failed: {e}')
+        errors.append(f'Wayback Machine failed: {e}')
 
     raise ValueError(
         'Could not extract a complete recipe from this URL. '
@@ -122,13 +142,15 @@ def _is_valid(recipe):
 def _parse_schema_org_regex(html, source_url):
     """Extract JSON-LD directly from raw HTML using regex — bypasses parser issues."""
     try:
+        # Match type="application/ld+json" and variants like type="application/ld+json;charset=utf-8"
         blocks = re.findall(
-            r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+            r'<script[^>]*type=["\']application/ld\+json[^"\']*["\'][^>]*>(.*?)</script>',
             html, re.DOTALL,
         )
         for block in blocks:
             try:
-                data = json.loads(block)
+                # Some CMSes HTML-encode JSON-LD content (e.g. &amp; instead of &)
+                data = json.loads(html_unescape(block.strip()))
             except (json.JSONDecodeError, TypeError):
                 continue
             recipe_data = _find_recipe_in_jsonld(data)
@@ -176,9 +198,11 @@ def _recipe_from_schema(recipe_data, source_url):
 
 def _parse_schema_org(soup, source_url):
     try:
-        for script in soup.find_all('script', type='application/ld+json'):
+        # Use regex to handle type variants like "application/ld+json;charset=utf-8"
+        for script in soup.find_all('script', type=re.compile(r'application/ld\+json')):
             try:
-                data = json.loads(script.string or '')
+                raw = script.string or ''
+                data = json.loads(html_unescape(raw.strip()))
             except (json.JSONDecodeError, TypeError):
                 continue
             recipe_data = _find_recipe_in_jsonld(data)

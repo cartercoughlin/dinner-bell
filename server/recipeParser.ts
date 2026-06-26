@@ -83,19 +83,26 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
     console.log(`⚠ Attempt 2 failed: ${err.message}`);
   }
 
-  // --- Attempt 3: Try Google webcache ---
+  // --- Attempt 3: Try Wayback Machine snapshot (bypasses bot detection on popular recipe sites) ---
   try {
-    console.log(`[Attempt 3] Google webcache: ${url}`);
-    const cacheUrl = `https://webcache.googleusercontent.com/search?q=cache:${encodeURIComponent(url)}`;
-    const html = await fetchWithAxios(cacheUrl);
-    const recipe = extractRecipe(html, url);
-    if (recipe) {
-      console.log(`✓ Parsed recipe from Google cache`);
-      return recipe;
+    console.log(`[Attempt 3] Wayback Machine: ${url}`);
+    const apiUrl = `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`;
+    const apiResp = await fetchWithAxios(apiUrl);
+    const apiData = JSON.parse(apiResp);
+    const snapshot = apiData?.archived_snapshots?.closest;
+    if (snapshot?.available && snapshot?.url) {
+      const html = await fetchWithAxios(snapshot.url);
+      const recipe = extractRecipe(html, url);
+      if (recipe) {
+        console.log(`✓ Parsed recipe from Wayback Machine`);
+        return recipe;
+      }
+      errors.push('Wayback Machine returned HTML but recipe data was incomplete');
+    } else {
+      errors.push('Wayback Machine: no snapshot available');
     }
-    errors.push('Google cache returned HTML but recipe data was incomplete');
   } catch (err: any) {
-    errors.push(`Google cache failed: ${err.message}`);
+    errors.push(`Wayback Machine failed: ${err.message}`);
     console.log(`⚠ Attempt 3 failed: ${err.message}`);
   }
 
@@ -175,16 +182,31 @@ function isRecipeType(type: any): boolean {
   return false;
 }
 
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+}
+
 function parseSchemaOrgRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedRecipe | null {
   try {
-    const scripts = $('script[type="application/ld+json"]');
+    // Use filter to handle type variants like "application/ld+json;charset=utf-8"
+    const scripts = $('script').filter((_, el) =>
+      /application\/ld\+json/i.test($(el).attr('type') || '')
+    );
 
     for (let i = 0; i < scripts.length; i++) {
       const scriptContent = $(scripts[i]).html();
       if (!scriptContent) continue;
 
       try {
-        const data = JSON.parse(scriptContent);
+        // Some CMSes HTML-encode JSON-LD content (e.g. &amp; instead of &)
+        const data = JSON.parse(decodeHtmlEntities(scriptContent));
         const items = Array.isArray(data) ? data : [data];
 
         let recipe: any = null;
