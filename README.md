@@ -149,6 +149,9 @@ See [PLAN.md](./PLAN.md) for the complete development roadmap with 9 phases cove
 8. Backend Migration
 9. Advanced Features (Discovery, Store Helper, Fridge Tracker)
 
+Sync with capacitor before building with XCode:
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npx cap sync ios
+
 ## License
 
 MIT

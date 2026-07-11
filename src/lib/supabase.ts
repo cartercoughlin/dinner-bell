@@ -1,17 +1,43 @@
 import { createClient } from '@supabase/supabase-js';
 import { Ingredient, MealPlan, MealType, Recipe } from '../types/recipe';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const DEFAULT_SUPABASE_URL = 'https://zigtbxnhlmdgwfmfdluk.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_WuMmkOJWVnEaXuiZlmiIzw__FxmjvHG';
+const DEFAULT_PUBLIC_APP_URL = 'https://dinner-bell.onrender.com';
+
+const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || DEFAULT_SUPABASE_URL;
+const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || DEFAULT_SUPABASE_ANON_KEY;
 
 export const supabase = url && key ? createClient(url, key) : null;
 export const isSupabaseEnabled = supabase !== null;
 
 const TOKEN_KEY = 'dinner-bell-user-token';
+const EMAIL_KEY = 'dinner-bell-user-email';
 const PUBLIC_APP_URL = import.meta.env.VITE_PUBLIC_APP_URL as string | undefined;
+const APP_URL_SCHEME = (import.meta.env.VITE_APP_URL_SCHEME as string | undefined) || 'dinnerbell';
 
-/** Stable per-device UUID — the "account" until real auth is added. */
-export function getUserToken(): string {
+export function normalizeUserEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function hashEmail(email: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < email.length; i++) {
+    hash ^= email.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function getEmailUserToken(email: string): string {
+  return `email:${hashEmail(normalizeUserEmail(email))}`;
+}
+
+export function getStoredUserEmail(): string {
+  return localStorage.getItem(EMAIL_KEY) ?? '';
+}
+
+function getDeviceToken(): string {
   let token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
     token = crypto.randomUUID();
@@ -20,9 +46,22 @@ export function getUserToken(): string {
   return token;
 }
 
+/** Stable household token. Email-backed when configured, device-backed otherwise. */
+export function getUserToken(): string {
+  const email = getStoredUserEmail();
+  return email ? getEmailUserToken(email) : getDeviceToken();
+}
+
 /** Switch this device to a different household token and reload. */
 export function setUserToken(token: string): void {
+  localStorage.removeItem(EMAIL_KEY);
   localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function setUserEmail(email: string): string {
+  const normalized = normalizeUserEmail(email);
+  localStorage.setItem(EMAIL_KEY, normalized);
+  return getEmailUserToken(normalized);
 }
 
 export function getFamilyInviteBaseUrl(): string | null {
@@ -30,7 +69,11 @@ export function getFamilyInviteBaseUrl(): string | null {
   if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
     return window.location.origin;
   }
-  return null;
+  return DEFAULT_PUBLIC_APP_URL;
+}
+
+export function getFamilyInviteUrl(token: string): string {
+  return `${APP_URL_SCHEME}://join/${encodeURIComponent(token)}`;
 }
 
 // ── Row ↔ domain mappers ─────────────────────────────────────────────────

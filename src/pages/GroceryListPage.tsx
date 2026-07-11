@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useRecipes } from '../contexts/RecipeContext';
 import { buildGroceryCategories } from '../utils/grocery';
 import { startOfWeek, toDateKey, addDays } from '../utils/dates';
@@ -124,12 +125,14 @@ function combineAmounts(amounts: string[]) {
 
 function GroceryListPage() {
   const { recipes, mealPlans } = useRecipes();
-  const [source, setSource] = useState<'week' | 'all'>('week');
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [resetState, setResetState] = useState<'idle' | 'confirm' | 'reset'>('idle');
   const [newItem, setNewItem] = useState('');
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [sourceOpenKey, setSourceOpenKey] = useState<string | null>(null);
+  const [confirmingDeleteKey, setConfirmingDeleteKey] = useState<string | null>(null);
+  const confirmDeleteTimer = useRef<number | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const [checked, setChecked] = useState<Record<string, boolean>>(() => {
     if (isSupabaseEnabled) return {};
@@ -176,6 +179,7 @@ function GroceryListPage() {
     return () => {
       if (copyTimer.current) window.clearTimeout(copyTimer.current);
       if (resetTimer.current) window.clearTimeout(resetTimer.current);
+      if (confirmDeleteTimer.current) window.clearTimeout(confirmDeleteTimer.current);
     };
   }, []);
 
@@ -279,7 +283,6 @@ function GroceryListPage() {
   }, [editingKey]);
 
   const selectedRecipes = useMemo(() => {
-    if (source === 'all') return recipes;
     const weekStart = startOfWeek();
     const weekDates = new Set(
       Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)))
@@ -290,7 +293,7 @@ function GroceryListPage() {
         .map(mp => mp.recipeId)
     );
     return recipes.filter(r => recipeIds.has(r.id));
-  }, [mealPlans, recipes, source]);
+  }, [mealPlans, recipes]);
 
   const categories = useMemo<GroceryCategoryView[]>(() => {
     const base = buildGroceryCategories(selectedRecipes);
@@ -457,6 +460,10 @@ function GroceryListPage() {
     [categories]
   );
 
+  const recipeLinkByTitle = useMemo(() => {
+    return new Map(recipes.map(recipe => [recipe.title, recipe.id]));
+  }, [recipes]);
+
   const groceryText = useMemo(() => {
     return categories
       .flatMap(cat => [
@@ -506,7 +513,6 @@ function GroceryListPage() {
   return (
     <div className="stack">
       <div className="page-toolbar">
-        <h1>Grocery List</h1>
         <div className="toolbar-actions">
           <button
             type="button"
@@ -528,15 +534,6 @@ function GroceryListPage() {
         </div>
       </div>
 
-      <div className="segmented-control">
-        <button type="button" className={source === 'week' ? 'active' : ''} onClick={() => setSource('week')}>
-          This week
-        </button>
-        <button type="button" className={source === 'all' ? 'active' : ''} onClick={() => setSource('all')}>
-          All recipes
-        </button>
-      </div>
-
       <form
         className="grocery-add-row"
         onSubmit={(e) => { e.preventDefault(); addItem(); }}
@@ -549,6 +546,9 @@ function GroceryListPage() {
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
         />
+        <button type="submit" className="grocery-add-btn" disabled={!newItem.trim()}>
+          Add
+        </button>
       </form>
 
       {allItems.length === 0 ? (
@@ -595,12 +595,49 @@ function GroceryListPage() {
                   )}
                   <button
                     type="button"
-                    className="grocery-remove-btn"
-                    aria-label={`Remove ${item.name}`}
-                    onClick={() => deleteItem(item.key)}
+                    className="grocery-source-btn"
+                    aria-label={`Show recipes for ${item.name}`}
+                    aria-expanded={sourceOpenKey === item.key}
+                    disabled={item.recipes.length === 0}
+                    onClick={() => setSourceOpenKey(sourceOpenKey === item.key ? null : item.key)}
                   >
-                    &minus;
+                    i
                   </button>
+                  <button
+                    type="button"
+                    className={`grocery-remove-btn ${confirmingDeleteKey === item.key ? 'grocery-remove-btn--confirm' : ''}`}
+                    aria-label={`Remove ${item.name}`}
+                    onClick={() => {
+                      if (confirmingDeleteKey === item.key) {
+                        deleteItem(item.key);
+                        setConfirmingDeleteKey(null);
+                        if (confirmDeleteTimer.current) window.clearTimeout(confirmDeleteTimer.current);
+                      } else {
+                        setConfirmingDeleteKey(item.key);
+                        if (confirmDeleteTimer.current) window.clearTimeout(confirmDeleteTimer.current);
+                        confirmDeleteTimer.current = window.setTimeout(() => setConfirmingDeleteKey(null), 3000);
+                      }
+                    }}
+                  >
+                    {confirmingDeleteKey === item.key ? '✓' : '×'}
+                  </button>
+                  {sourceOpenKey === item.key && item.recipes.length > 0 && (
+                    <div className="grocery-source-panel">
+                      <span>For</span>
+                      <div className="grocery-source-links">
+                        {item.recipes.map((recipeTitle) => {
+                          const recipeId = recipeLinkByTitle.get(recipeTitle);
+                          return recipeId ? (
+                            <Link key={recipeTitle} to={`/recipe/${recipeId}`}>
+                              {recipeTitle}
+                            </Link>
+                          ) : (
+                            <span key={recipeTitle}>{recipeTitle}</span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

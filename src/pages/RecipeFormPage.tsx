@@ -7,20 +7,26 @@ import RecipeForm from '../components/RecipeForm';
 function RecipeFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getRecipe, addRecipe, updateRecipe } = useRecipes();
+  const { getRecipe, addRecipe, updateRecipe, loading } = useRecipes();
   const [initialData, setInitialData] = useState<RecipeFormData | undefined>();
   const isEditMode = Boolean(id);
 
   useEffect(() => {
-    if (id) {
-      const recipe = getRecipe(id);
-      if (recipe) {
-        setInitialData(recipe);
-      } else {
-        navigate('/');
-      }
+    if (!id) {
+      setInitialData(undefined);
+      return;
     }
-  }, [id, getRecipe, navigate]);
+
+    const recipe = getRecipe(id);
+    if (recipe) {
+      setInitialData(recipe);
+      return;
+    }
+
+    if (!loading) {
+      navigate('/');
+    }
+  }, [id, getRecipe, loading, navigate]);
 
   const handleSubmit = (data: RecipeFormData) => {
     if (isEditMode && id) {
@@ -51,13 +57,19 @@ function RecipeFormPage() {
   return (
     <div className="recipe-form-page stack">
       <div className="page-toolbar">
-        <h1>{isEditMode ? 'Edit Recipe' : 'Add New Recipe'}</h1>
+        <h1>{isEditMode ? 'Edit recipe' : 'New recipe'}</h1>
       </div>
-      <RecipeForm
-        initialData={initialData}
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-      />
+      {isEditMode && !initialData ? (
+        <p className="form-note">Loading recipe…</p>
+      ) : (
+        <RecipeForm
+          key={isEditMode ? id : 'new'}
+          initialData={initialData}
+          isEditMode={isEditMode}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+        />
+      )}
     </div>
   );
 }

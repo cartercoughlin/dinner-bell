@@ -1,0 +1,21 @@
+.theme-hearth {
+  --background: #f7f3ec;
+  --surface: #fffdf8;
+  --surface-secondary: #eee5d8;
+  --surface-strong: rgba(93, 70, 43, 0.11);
+  --border: rgba(78, 60, 41, 0.24);
+  --border-soft: rgba(78, 60, 41, 0.12);
+  --text: #26211b;
+  --muted: #7f7569;
+  --primary: #8a3f2d;
+  --primary-pressed: #743424;
+  --success: #4f7a52;
+  --danger: #b83b32;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(66, 45, 25, 0.08), 0 8px 18px rgba(66, 45, 25, 0.06);
+  --shadow-md: 0 14px 32px rgba(66, 45, 25, 0.12);
+  --accent: #b9853b;
+  --wash: #efe7dc;
+}

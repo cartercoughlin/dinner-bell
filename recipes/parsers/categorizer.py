@@ -1,54 +1,50 @@
-"""Auto-assign categories/tags to recipes based on title and ingredients."""
+"""Auto-assign categories to recipes based on title and ingredients."""
 
-import re
 
-PROTEIN_KEYWORDS = {
-    'chicken': 'chicken',
-    'turkey': 'turkey',
-    'beef': 'beef',
-    'steak': 'beef',
-    'ground beef': 'beef',
-    'pork': 'pork',
-    'bacon': 'pork',
-    'sausage': 'pork',
-    'ham': 'pork',
-    'lamb': 'lamb',
-    'salmon': 'seafood',
-    'shrimp': 'seafood',
-    'fish': 'seafood',
-    'tuna': 'seafood',
-    'crab': 'seafood',
-    'lobster': 'seafood',
-    'scallop': 'seafood',
-    'cod': 'seafood',
-    'tilapia': 'seafood',
-    'tofu': 'vegetarian',
-    'tempeh': 'vegetarian',
+DISH_TYPES = {
+    'Pasta': ['pasta', 'spaghetti', 'penne', 'fettuccine', 'linguine', 'macaroni', 'noodle', 'lasagna', 'ravioli', 'gnocchi', 'rigatoni', 'ziti', 'carbonara', 'alfredo', 'bolognese', 'mac and cheese'],
+    'Soup': ['soup', 'stew', 'chowder', 'bisque', 'chili', 'gumbo', 'gazpacho', 'ramen', 'pho'],
+    'Salad': ['salad', 'slaw', 'coleslaw', 'caesar'],
+    'Sandwich': ['sandwich', 'burger', 'wrap', 'sub', 'panini', 'melt', 'blt'],
+    'Tacos': ['taco', 'burrito', 'enchilada', 'fajita', 'quesadilla', 'tostada', 'nachos'],
+    'Pizza': ['pizza', 'flatbread', 'calzone'],
+    'Casserole': ['casserole', 'bake', 'gratin', 'pot pie'],
+    'Bowl': ['bowl', 'poke', 'buddha bowl', 'grain bowl'],
+    'Curry': ['curry', 'tikka', 'masala', 'vindaloo', 'korma'],
+    'Stir fry': ['stir fry', 'stir-fry', 'lo mein', 'pad thai', 'fried rice'],
+    'Sides': ['side dish', 'side', 'coleslaw', 'cornbread', 'mashed potato', 'baked beans', 'rice pilaf', 'roasted vegetable'],
+}
+
+MEAL_TYPES = {
+    'Breakfast': ['pancake', 'waffle', 'oatmeal', 'breakfast', 'brunch', 'french toast', 'omelet', 'omelette', 'frittata', 'granola', 'quiche', 'crepe'],
+    'Dessert': ['cake', 'cookie', 'brownie', 'pie', 'frosting', 'dessert', 'cupcake', 'ice cream', 'pudding', 'tart', 'cheesecake', 'cobbler', 'crumble', 'tiramisu', 'donut', 'doughnut', 'scone', 'muffin', 'cinnamon roll'],
+    'Drinks': ['drink', 'cocktail', 'smoothie', 'lemonade', 'margarita', 'sangria', 'punch', 'mocktail', 'milkshake', 'hot chocolate', 'eggnog', 'cider'],
+    'Appetizer': ['appetizer', 'dip', 'bruschetta', 'crostini', 'wings', 'spring roll', 'egg roll'],
+    'Snack': ['snack', 'trail mix', 'granola bar', 'popcorn', 'hummus', 'guacamole'],
 }
 
 CUISINE_KEYWORDS = {
-    'italian': ['pasta', 'parmesan', 'mozzarella', 'basil', 'marinara', 'pesto', 'risotto', 'lasagna', 'pizza'],
-    'mexican': ['tortilla', 'taco', 'burrito', 'salsa', 'enchilada', 'chimichurri', 'jalapeño', 'jalapeno', 'cilantro', 'cumin', 'chipotle', 'quesadilla'],
-    'asian': ['soy sauce', 'ginger', 'sesame', 'rice vinegar', 'sriracha', 'hoisin', 'teriyaki', 'stir fry', 'wok', 'noodle'],
-    'indian': ['curry', 'turmeric', 'garam masala', 'naan', 'tikka', 'masala', 'cardamom', 'chutney'],
-    'mediterranean': ['olive oil', 'feta', 'hummus', 'tahini', 'pita', 'za\'atar', 'zaatar', 'tzatziki'],
+    'Italian': ['parmesan', 'mozzarella', 'marinara', 'pesto', 'risotto', 'prosciutto', 'bruschetta'],
+    'Mexican': ['tortilla', 'salsa', 'chipotle', 'cilantro', 'cumin', 'guacamole', 'chorizo', 'mole', 'elote'],
+    'Asian': ['soy sauce', 'sesame', 'hoisin', 'teriyaki', 'miso', 'kimchi', 'dumpling', 'gyoza', 'edamame'],
+    'Indian': ['turmeric', 'garam masala', 'naan', 'tandoori', 'chutney', 'dal', 'biryani', 'samosa', 'paneer'],
+    'Mediterranean': ['feta', 'tahini', 'pita', "za'atar", 'zaatar', 'tzatziki', 'falafel', 'shawarma', 'couscous'],
 }
 
-MEAL_TYPE_KEYWORDS = {
-    'breakfast': ['egg', 'pancake', 'waffle', 'oatmeal', 'cereal', 'breakfast', 'brunch', 'french toast', 'omelet', 'omelette'],
-    'dessert': ['cake', 'cookie', 'brownie', 'pie', 'chocolate', 'sugar', 'frosting', 'dessert', 'cupcake', 'ice cream', 'sweet'],
-    'appetizer': ['appetizer', 'dip', 'bruschetta', 'crostini', 'hors d\'oeuvre'],
-    'snack': ['snack', 'trail mix', 'granola bar', 'popcorn'],
+PROTEIN_KEYWORDS = {
+    'Chicken': ['chicken'],
+    'Beef': ['beef', 'steak', 'ground beef', 'brisket', 'short rib'],
+    'Pork': ['pork', 'bacon', 'sausage', 'ham', 'prosciutto', 'pulled pork', 'pork chop'],
+    'Seafood': ['salmon', 'shrimp', 'fish', 'tuna', 'cod', 'tilapia', 'crab', 'lobster', 'scallop', 'clam', 'mussel', 'halibut', 'swordfish', 'trout', 'mahi'],
+    'Lamb': ['lamb'],
 }
 
-DISH_TYPE_KEYWORDS = {
-    'soup': ['soup', 'stew', 'chowder', 'bisque', 'broth', 'chili'],
-    'salad': ['salad', 'slaw', 'coleslaw'],
-    'pasta': ['pasta', 'spaghetti', 'penne', 'fettuccine', 'linguine', 'macaroni', 'noodle'],
-    'sandwich': ['sandwich', 'burger', 'wrap', 'sub', 'panini'],
-    'casserole': ['casserole', 'bake'],
-    'tacos': ['taco'],
-    'bowl': ['bowl'],
+COOKING_STYLE = {
+    'Grilled': ['grill', 'grilled', 'bbq', 'barbecue', 'charred'],
+    'Slow cooker': ['slow cooker', 'crockpot', 'crock pot', 'braised', 'braise'],
+    'Instant pot': ['instant pot', 'pressure cooker'],
+    'One pot': ['one pot', 'one-pot', 'sheet pan', 'sheet-pan', 'skillet dinner'],
+    'Quick': ['15 minute', '15-minute', '20 minute', '20-minute', '30 minute', '30-minute', 'quick', 'easy', 'weeknight'],
 }
 
 
@@ -58,34 +54,35 @@ def auto_categorize(title, ingredient_names):
     title_lower = title.lower() if title else ''
     all_text = title_lower + ' ' + ' '.join(name.lower() for name in ingredient_names)
 
-    # Detect proteins
-    for keyword, protein in PROTEIN_KEYWORDS.items():
-        if keyword in all_text:
-            tags.add(protein)
+    # Dish types (title-only for most, all_text for pasta)
+    for category, keywords in DISH_TYPES.items():
+        search_in = all_text if category == 'Pasta' else title_lower
+        if any(kw in search_in for kw in keywords):
+            tags.add(category)
 
-    # Detect cuisine
+    # Meal types (search all text)
+    for meal_type, keywords in MEAL_TYPES.items():
+        if any(kw in all_text for kw in keywords):
+            tags.add(meal_type)
+
+    # Cuisine (search all text)
     for cuisine, keywords in CUISINE_KEYWORDS.items():
         if any(kw in all_text for kw in keywords):
             tags.add(cuisine)
 
-    # Detect meal type (primarily from title)
-    for meal_type, keywords in MEAL_TYPE_KEYWORDS.items():
+    # Proteins (search all text)
+    for protein, keywords in PROTEIN_KEYWORDS.items():
         if any(kw in all_text for kw in keywords):
-            tags.add(meal_type)
+            tags.add(protein)
 
-    # Detect dish type
-    for dish_type, keywords in DISH_TYPE_KEYWORDS.items():
+    # Cooking style (title only)
+    for style, keywords in COOKING_STYLE.items():
         if any(kw in title_lower for kw in keywords):
-            tags.add(dish_type)
+            tags.add(style)
 
-    # Default to dinner if no meal type detected
-    meal_types = {'breakfast', 'dessert', 'appetizer', 'snack'}
-    if not tags.intersection(meal_types):
-        tags.add('dinner')
-
-    # Check for vegetarian (no meat proteins found)
-    meat_proteins = {'chicken', 'turkey', 'beef', 'pork', 'lamb', 'seafood'}
-    if not tags.intersection(meat_proteins):
-        tags.add('vegetarian')
+    # Vegetarian if no meat detected
+    meat_tags = {'Chicken', 'Beef', 'Pork', 'Seafood', 'Lamb'}
+    if not tags.intersection(meat_tags):
+        tags.add('Vegetarian')
 
     return sorted(tags)

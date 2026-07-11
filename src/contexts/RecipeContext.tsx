@@ -3,11 +3,14 @@ import { MealPlan, MealType, Recipe, RecipeFormData } from '../types/recipe';
 import {
   supabase,
   isSupabaseEnabled,
+  getStoredUserEmail,
   getUserToken,
+  normalizeUserEmail,
   recipeToRow,
   rowToRecipe,
   mealPlanToRow,
   rowToMealPlan,
+  setUserEmail,
 } from '../lib/supabase';
 
 interface RecipeContextType {
@@ -21,6 +24,8 @@ interface RecipeContextType {
   setMealPlan: (date: string, mealType: MealType, recipeId: string) => void;
   removeMealPlan: (date: string, mealType: MealType) => void;
   getMealPlan: (date: string, mealType: MealType) => MealPlan | undefined;
+  userEmail: string;
+  connectEmail: (email: string) => Promise<void>;
 }
 
 const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
@@ -41,6 +46,7 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
   // Seed state from localStorage so existing data shows instantly
   const [recipes, setRecipes] = useState<Recipe[]>(() => readLS<Recipe>(LS_RECIPES));
   const [mealPlans, setMealPlans] = useState<MealPlan[]>(() => readLS<MealPlan>(LS_MEAL_PLANS));
+  const [userEmail, setUserEmailState] = useState(() => getStoredUserEmail());
   const [loading, setLoading] = useState(isSupabaseEnabled);
 
   const didLoad = useRef(false);
@@ -203,6 +209,60 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
   const getMealPlan = (date: string, mealType: MealType) =>
     mealPlans.find(mp => mp.date === date && mp.mealType === mealType);
 
+  const connectEmail = async (email: string) => {
+    const normalizedEmail = normalizeUserEmail(email);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      throw new Error('Enter a valid email address.');
+    }
+
+    const nextToken = setUserEmail(normalizedEmail);
+    setUserEmailState(normalizedEmail);
+
+    if (!isSupabaseEnabled) return;
+
+    setLoading(true);
+    try {
+      const [{ data: existingRows, error: recipesError }, { data: existingMealRows, error: mealPlansError }] =
+        await Promise.all([
+          supabase!.from('recipes').select('*').eq('user_token', nextToken).order('date_added'),
+          supabase!.from('meal_plans').select('*').eq('user_token', nextToken),
+        ]);
+
+      if (recipesError || mealPlansError) {
+        throw recipesError ?? mealPlansError;
+      }
+
+      const existingRecipes = (existingRows ?? []).map(rowToRecipe);
+      const existingMealPlans = (existingMealRows ?? []).map(rowToMealPlan);
+      const seenTitles = new Set(existingRecipes.map(recipe => recipe.title.toLowerCase().trim()));
+      const recipesToCopy = recipes.filter(recipe => !seenTitles.has(recipe.title.toLowerCase().trim()));
+      const mergedRecipes = [...existingRecipes, ...recipesToCopy];
+
+      if (recipesToCopy.length > 0) {
+        const { error } = await supabase!
+          .from('recipes')
+          .upsert(recipesToCopy.map(recipe => recipeToRow(recipe, nextToken)));
+        if (error) throw error;
+      }
+
+      const seenMealPlanIds = new Set(existingMealPlans.map(plan => plan.id));
+      const mealPlansToCopy = mealPlans.filter(plan => !seenMealPlanIds.has(plan.id));
+      const mergedMealPlans = [...existingMealPlans, ...mealPlansToCopy];
+
+      if (mealPlansToCopy.length > 0) {
+        const { error } = await supabase!
+          .from('meal_plans')
+          .upsert(mealPlansToCopy.map(plan => mealPlanToRow(plan, nextToken)));
+        if (error) throw error;
+      }
+
+      setRecipes(mergedRecipes);
+      setMealPlans(mergedMealPlans);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <RecipeContext.Provider
       value={{
@@ -216,6 +276,8 @@ export function RecipeProvider({ children }: { children: ReactNode }) {
         setMealPlan,
         removeMealPlan,
         getMealPlan,
+        userEmail,
+        connectEmail,
       }}
     >
       {children}

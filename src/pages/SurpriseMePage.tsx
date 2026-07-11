@@ -1,14 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useRecipes } from '../contexts/RecipeContext';
 
 function SurpriseMePage() {
   const { recipes } = useRecipes();
   const navigate = useNavigate();
+  const [seed, setSeed] = useState(0);
   const recipe = useMemo(() => {
     if (!recipes.length) return undefined;
     return recipes[Math.floor(Math.random() * recipes.length)];
-  }, [recipes]);
+  }, [recipes, seed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!recipe) {
     return (
@@ -23,7 +24,7 @@ function SurpriseMePage() {
     <div className="stack">
       <div className="page-toolbar">
         <h1>Surprise Me</h1>
-        <button type="button" onClick={() => navigate(0)}>Pick again</button>
+        <button type="button" onClick={() => setSeed(s => s + 1)}>🔄</button>
       </div>
       <div className="recipe-card" onClick={() => navigate(`/recipe/${recipe.id}`)} style={{ cursor: 'pointer' }}>
         <h3>{recipe.title}</h3>

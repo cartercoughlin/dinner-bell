@@ -7,7 +7,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getRecipe, deleteRecipe } = useRecipes();
+  const { getRecipe, deleteRecipe, updateRecipe } = useRecipes();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!id) {
@@ -46,6 +46,7 @@ function RecipeDetailPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onBack={() => navigate('/')}
+        onCoverChange={(imageUrl) => updateRecipe({ ...recipe, imageUrl: imageUrl || undefined })}
       />
       <ConfirmDialog
         open={showDeleteConfirm}

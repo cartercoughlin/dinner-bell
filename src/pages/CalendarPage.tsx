@@ -23,19 +23,17 @@ function CalendarPage() {
 
   return (
     <div className="stack">
-      <div className="page-toolbar">
-        <div>
-          <h1>Calendar</h1>
-          <p className="toolbar-subtitle">
-            {weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {weekEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-          </p>
-        </div>
-        <div className="toolbar-actions">
-          <button type="button" onClick={() => setWeekStart(addDays(weekStart, -7))}>Prev</button>
-          <button type="button" onClick={() => setWeekStart(startOfWeek())}>Today</button>
-          <button type="button" onClick={() => setWeekStart(addDays(weekStart, 7))}>Next</button>
+      <div className="page-toolbar calendar-toolbar">
+        <h1>Calendar</h1>
+        <div className="toolbar-actions calendar-nav">
+          <button type="button" className="secondary-btn calendar-nav-btn" onClick={() => setWeekStart(addDays(weekStart, -7))}>←</button>
+          <button type="button" className="secondary-btn calendar-nav-btn" onClick={() => setWeekStart(startOfWeek())}>Today</button>
+          <button type="button" className="secondary-btn calendar-nav-btn" onClick={() => setWeekStart(addDays(weekStart, 7))}>→</button>
         </div>
       </div>
+      <p className="calendar-week-label">
+        {weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – {weekEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+      </p>
 
       <Link className="text-link" to="/grocery-list">Open grocery list</Link>
 

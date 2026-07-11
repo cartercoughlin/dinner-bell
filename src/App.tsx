@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, NavLink, Routes, Route } from 'react-router-dom';
+import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { BrowserRouter, NavLink, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
 import { RecipeProvider } from './contexts/RecipeContext';
+import { useRecipes } from './contexts/RecipeContext';
 import { TimerProvider } from './contexts/TimerContext';
 import { FloatingTimer } from './components/FloatingTimer';
 import { FamilySharingSheet } from './components/FamilySharingSheet';
+import { isSupabaseEnabled } from './lib/supabase';
 import RecipeListPage from './pages/RecipeListPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
 import RecipeFormPage from './pages/RecipeFormPage';
@@ -14,6 +17,178 @@ import CalendarPage from './pages/CalendarPage';
 import GroceryListPage from './pages/GroceryListPage';
 import SurpriseMePage from './pages/SurpriseMePage';
 import JoinPage from './pages/JoinPage';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const activeElement = document.activeElement;
+    const isEditing =
+      activeElement instanceof HTMLInputElement ||
+      activeElement instanceof HTMLTextAreaElement ||
+      activeElement instanceof HTMLSelectElement;
+
+    if (isEditing) return;
+
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
+function getJoinPathFromUrl(urlString: string): string | null {
+  try {
+    const url = new URL(urlString);
+    const parts = url.pathname.split('/').filter(Boolean);
+    let token: string | undefined;
+
+    if (url.protocol === 'dinnerbell:') {
+      token = url.hostname === 'join' ? parts[0] : parts[0] === 'join' ? parts[1] : undefined;
+    } else if (url.pathname.startsWith('/join/')) {
+      token = parts[1];
+    }
+
+    return token ? `/join/${encodeURIComponent(decodeURIComponent(token))}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function DeepLinkHandler() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const openUrl = (url: string | undefined) => {
+      if (!url) return;
+      const joinPath = getJoinPathFromUrl(url);
+      if (joinPath) navigate(joinPath);
+    };
+
+    void CapacitorApp.getLaunchUrl().then(result => openUrl(result?.url));
+
+    let removeListener: (() => void) | undefined;
+    void CapacitorApp.addListener('appUrlOpen', event => openUrl(event.url)).then(handle => {
+      removeListener = () => handle.remove();
+    });
+
+    return () => removeListener?.();
+  }, [navigate]);
+
+  return null;
+}
+
+function EdgeSwipeBackHandler() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      return Boolean(
+        target.closest('input, textarea, select, [contenteditable="true"], button, a')
+      );
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1 || location.pathname === '/') {
+        tracking = false;
+        return;
+      }
+
+      const touch = event.touches[0];
+      const startsAtLeftEdge = touch.clientX <= 28;
+
+      tracking = startsAtLeftEdge && !isEditableTarget(event.target);
+      startX = touch.clientX;
+      startY = touch.clientY;
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (!tracking) return;
+      tracking = false;
+
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+
+      const deltaX = touch.clientX - startX;
+      const deltaY = Math.abs(touch.clientY - startY);
+      const mostlyHorizontal = deltaX > 72 && deltaX > deltaY * 1.5;
+
+      if (mostlyHorizontal) {
+        navigate(-1);
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [location.pathname, navigate]);
+
+  return null;
+}
+
+function EmailLoginGate({ children }: { children: ReactNode }) {
+  const { connectEmail, userEmail } = useRecipes();
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  if (!isSupabaseEnabled || userEmail) return <>{children}</>;
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+
+    setIsSaving(true);
+    setError('');
+    try {
+      await connectEmail(email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save email.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <main className="email-login-screen">
+      <form className="email-login-card" onSubmit={submit}>
+        <h1>Dinner Bell <span aria-hidden="true">🔔</span></h1>
+        <p>Enter an email to keep your recipes available across devices and reinstalls.</p>
+        <label htmlFor="firstRunEmail">Email</label>
+        <div className="email-login-row">
+          <input
+            id="firstRunEmail"
+            type="email"
+            inputMode="email"
+            value={email}
+            onChange={event => {
+              setEmail(event.target.value);
+              setError('');
+            }}
+            placeholder="you@example.com"
+            autoCapitalize="off"
+            autoFocus
+          />
+          <button className="primary-btn" type="submit" disabled={!email.trim() || isSaving}>
+            {isSaving ? 'Saving' : 'Continue'}
+          </button>
+        </div>
+        {error && <p className="form-error">{error}</p>}
+      </form>
+    </main>
+  );
+}
 
 function App() {
   const [sharingOpen, setSharingOpen] = useState(false);
@@ -39,8 +214,12 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
+      <DeepLinkHandler />
+      <EdgeSwipeBackHandler />
       <TimerProvider>
       <RecipeProvider>
+        <EmailLoginGate>
         <div className="app">
           <header className="app-header">
             <div className="app-header-title-row">
@@ -83,6 +262,7 @@ function App() {
         </div>
         <FloatingTimer />
         {sharingOpen && <FamilySharingSheet onClose={() => setSharingOpen(false)} />}
+        </EmailLoginGate>
       </RecipeProvider>
       </TimerProvider>
     </BrowserRouter>

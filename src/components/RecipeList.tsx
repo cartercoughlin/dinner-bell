@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRecipes } from '../contexts/RecipeContext';
 import { MakeModeModal } from './MakeModeModal';
 import { Recipe } from '../types/recipe';
+import { isSupabaseEnabled } from '../lib/supabase';
 
 function normalize(s: string) {
   return s.toLowerCase().trim();
@@ -13,13 +14,17 @@ function recipeMatchesSearch(recipe: Recipe, query: string): boolean {
   if (!q) return true;
   if (normalize(recipe.title).includes(q)) return true;
   if (recipe.sourceUrl && normalize(recipe.sourceUrl).includes(q)) return true;
+  if (recipe.tags?.some(t => normalize(t).includes(q))) return true;
   return recipe.ingredients.some(ing => normalize(ing.name).includes(q));
 }
 
 export function RecipeList() {
-  const { recipes, loading } = useRecipes();
+  const { recipes, loading, connectEmail } = useRecipes();
   const navigate = useNavigate();
   const [makingRecipe, setMakingRecipe] = useState<Recipe | null>(null);
+  const [restoreEmail, setRestoreEmail] = useState('');
+  const [restoreError, setRestoreError] = useState('');
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const [query, setQuery]       = useState('');
   const [tagFilter, setTag]     = useState('');
@@ -55,6 +60,19 @@ export function RecipeList() {
     setTool('');
   };
 
+  const restoreRecipes = async () => {
+    if (!restoreEmail.trim()) return;
+    setIsRestoring(true);
+    setRestoreError('');
+    try {
+      await connectEmail(restoreEmail);
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Could not restore recipes.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   if (loading && recipes.length === 0) {
     return (
       <div className="empty-state">
@@ -68,6 +86,32 @@ export function RecipeList() {
       <div className="empty-state">
         <h2>No recipes yet</h2>
         <p>Add your first recipe to get started!</p>
+        {isSupabaseEnabled && (
+          <div className="restore-recipes-panel">
+            <label htmlFor="restoreEmail">Restore with email</label>
+            <div className="restore-recipes-row">
+              <input
+                id="restoreEmail"
+                type="email"
+                inputMode="email"
+                value={restoreEmail}
+                onChange={e => setRestoreEmail(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    restoreRecipes();
+                  }
+                }}
+                placeholder="you@example.com"
+                autoCapitalize="off"
+              />
+              <button className="primary-btn" type="button" onClick={restoreRecipes} disabled={!restoreEmail.trim() || isRestoring}>
+                {isRestoring ? 'Restoring' : 'Restore'}
+              </button>
+            </div>
+            {restoreError && <p className="form-error">{restoreError}</p>}
+          </div>
+        )}
       </div>
     );
   }

@@ -151,6 +151,19 @@ function extractRecipe(html: string, sourceUrl: string): ParsedRecipe | null {
   return null;
 }
 
+function stripHtml(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/u0022/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -201,15 +214,17 @@ function parseSchemaOrgRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedR
         }
 
         if (recipe) {
+          const parsedIngredients = parseIngredients(recipe.recipeIngredient || []);
+          const autoTags = autoCategorize(stripHtml(recipe.name || ''), parsedIngredients.map(i => i.name));
           return {
-            title: recipe.name || 'Untitled Recipe',
-            ingredients: parseIngredients(recipe.recipeIngredient || []),
+            title: stripHtml(recipe.name || '') || 'Untitled Recipe',
+            ingredients: parsedIngredients,
             directions: parseDirections(recipe.recipeInstructions || []),
             prepTime: parseTime(recipe.prepTime),
             cookTime: parseTime(recipe.cookTime),
             servings: parseServings(recipe.recipeYield),
             sourceUrl,
-            tags: parseKeywords(recipe.keywords),
+            tags: autoTags.length > 0 ? autoTags : undefined,
             imageUrl: parseImage(recipe.image),
           };
         }
@@ -272,14 +287,18 @@ function parseMicrodataRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedR
     const imageEl = recipeNode.find('[itemprop="image"]').first();
     const imageUrl = imageEl.attr('src') || imageEl.attr('content') || undefined;
 
+    const parsedIngredients = parseIngredients(ingredientTexts);
+    const autoTags = autoCategorize(title, parsedIngredients.map(i => i.name));
+
     return {
       title,
-      ingredients: parseIngredients(ingredientTexts),
+      ingredients: parsedIngredients,
       directions: directionTexts.length > 0 ? directionTexts : ['No directions found. Please add them manually.'],
       prepTime: parseTime(prepTimeStr),
       cookTime: parseTime(cookTimeStr),
       servings: parseServings(yieldStr),
       sourceUrl,
+      tags: autoTags.length > 0 ? autoTags : undefined,
       imageUrl,
     };
   } catch {
@@ -344,12 +363,16 @@ function parseHtmlRecipe($: cheerio.CheerioAPI, sourceUrl: string): ParsedRecipe
     $('img[class*="wp-post-image"]').first().attr('src') ||
     $('meta[property="og:image"]').attr('content');
 
+  const parsedIngredients = parseIngredients(ingredients);
+  const autoTags = autoCategorize(title, parsedIngredients.map(i => i.name));
+
   return {
     title,
-    ingredients: parseIngredients(ingredients),
+    ingredients: parsedIngredients,
     directions: directions.length > 0 ? directions : ['No directions found. Please add them manually.'],
     servings,
     sourceUrl,
+    tags: autoTags.length > 0 ? autoTags : undefined,
     imageUrl: imageUrl ? (imageUrl.startsWith('http') ? imageUrl : new URL(imageUrl, sourceUrl).href) : undefined,
   };
 }
@@ -486,6 +509,61 @@ function parseKeywords(keywords?: any): string[] | undefined {
   }
 
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Auto-categorization
+// ---------------------------------------------------------------------------
+
+const CATEGORY_RULES: Record<string, { keywords: string[]; searchAll?: boolean }> = {
+  Pasta: { keywords: ['pasta', 'spaghetti', 'penne', 'fettuccine', 'linguine', 'macaroni', 'noodle', 'lasagna', 'ravioli', 'gnocchi', 'rigatoni', 'ziti', 'carbonara', 'alfredo', 'bolognese', 'mac and cheese'], searchAll: true },
+  Soup: { keywords: ['soup', 'stew', 'chowder', 'bisque', 'chili', 'gumbo', 'gazpacho', 'ramen', 'pho'] },
+  Salad: { keywords: ['salad', 'slaw', 'coleslaw', 'caesar'] },
+  Sandwich: { keywords: ['sandwich', 'burger', 'wrap', 'sub', 'panini', 'melt', 'blt'] },
+  Tacos: { keywords: ['taco', 'burrito', 'enchilada', 'fajita', 'quesadilla', 'tostada', 'nachos'] },
+  Pizza: { keywords: ['pizza', 'flatbread', 'calzone'] },
+  Casserole: { keywords: ['casserole', 'bake', 'gratin', 'pot pie'] },
+  Bowl: { keywords: ['bowl', 'poke', 'buddha bowl', 'grain bowl'] },
+  Curry: { keywords: ['curry', 'tikka', 'masala', 'vindaloo', 'korma'] },
+  'Stir fry': { keywords: ['stir fry', 'stir-fry', 'lo mein', 'pad thai', 'fried rice'] },
+  Breakfast: { keywords: ['pancake', 'waffle', 'oatmeal', 'breakfast', 'brunch', 'french toast', 'omelet', 'omelette', 'frittata', 'granola', 'quiche', 'crepe'], searchAll: true },
+  Dessert: { keywords: ['cake', 'cookie', 'brownie', 'pie', 'frosting', 'dessert', 'cupcake', 'ice cream', 'pudding', 'tart', 'cheesecake', 'cobbler', 'crumble', 'tiramisu', 'donut', 'scone', 'muffin'], searchAll: true },
+  Drinks: { keywords: ['drink', 'cocktail', 'smoothie', 'lemonade', 'margarita', 'sangria', 'punch', 'mocktail', 'milkshake', 'hot chocolate', 'eggnog', 'cider'] },
+  Appetizer: { keywords: ['appetizer', 'dip', 'bruschetta', 'crostini', 'wings', 'spring roll'] },
+  Snack: { keywords: ['snack', 'trail mix', 'granola bar', 'popcorn', 'hummus', 'guacamole'] },
+  Chicken: { keywords: ['chicken'], searchAll: true },
+  Beef: { keywords: ['beef', 'steak', 'ground beef', 'brisket'], searchAll: true },
+  Pork: { keywords: ['pork', 'bacon', 'sausage', 'ham', 'pulled pork'], searchAll: true },
+  Seafood: { keywords: ['salmon', 'shrimp', 'fish', 'tuna', 'cod', 'tilapia', 'crab', 'lobster', 'scallop'], searchAll: true },
+  Italian: { keywords: ['parmesan', 'mozzarella', 'marinara', 'pesto', 'risotto', 'prosciutto'], searchAll: true },
+  Mexican: { keywords: ['tortilla', 'salsa', 'chipotle', 'cilantro', 'cumin', 'guacamole', 'chorizo'], searchAll: true },
+  Asian: { keywords: ['soy sauce', 'sesame', 'hoisin', 'teriyaki', 'miso', 'kimchi', 'dumpling'], searchAll: true },
+  Indian: { keywords: ['turmeric', 'garam masala', 'naan', 'tandoori', 'dal', 'biryani', 'paneer'], searchAll: true },
+  Mediterranean: { keywords: ['feta', 'tahini', 'pita', 'tzatziki', 'falafel', 'shawarma'], searchAll: true },
+  Grilled: { keywords: ['grill', 'grilled', 'bbq', 'barbecue'] },
+  'Slow cooker': { keywords: ['slow cooker', 'crockpot', 'crock pot', 'braised'] },
+  Quick: { keywords: ['15 minute', '15-minute', '20 minute', '20-minute', '30 minute', '30-minute', 'quick', 'easy', 'weeknight'] },
+};
+
+function autoCategorize(title: string, ingredientNames: string[]): string[] {
+  const titleLower = (title || '').toLowerCase();
+  const allText = titleLower + ' ' + ingredientNames.map(n => n.toLowerCase()).join(' ');
+  const tags = new Set<string>();
+
+  for (const [category, rule] of Object.entries(CATEGORY_RULES)) {
+    const searchIn = rule.searchAll ? allText : titleLower;
+    if (rule.keywords.some(kw => searchIn.includes(kw))) {
+      tags.add(category);
+    }
+  }
+
+  // Vegetarian if no meat detected
+  const meatTags = new Set(['Chicken', 'Beef', 'Pork', 'Seafood']);
+  if (![...tags].some(t => meatTags.has(t))) {
+    tags.add('Vegetarian');
+  }
+
+  return [...tags].sort();
 }
 
 function parseImage(image?: any): string | undefined {

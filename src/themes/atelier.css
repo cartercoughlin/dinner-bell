@@ -1,0 +1,21 @@
+.theme-atelier {
+  --background: #f4f5f2;
+  --surface: #ffffff;
+  --surface-secondary: #e8ebe4;
+  --surface-strong: rgba(42, 67, 54, 0.10);
+  --border: rgba(39, 53, 47, 0.22);
+  --border-soft: rgba(39, 53, 47, 0.10);
+  --text: #202622;
+  --muted: #747d75;
+  --primary: #2f6c5d;
+  --primary-pressed: #285c50;
+  --success: #537449;
+  --danger: #aa3f38;
+  --radius: 9px;
+  --radius-sm: 6px;
+  --radius-lg: 13px;
+  --shadow-sm: 0 1px 2px rgba(29, 45, 38, 0.06), 0 7px 16px rgba(29, 45, 38, 0.05);
+  --shadow-md: 0 16px 34px rgba(29, 45, 38, 0.12);
+  --accent: #bd7040;
+  --wash: #e7ece4;
+}

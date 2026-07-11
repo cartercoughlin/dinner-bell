@@ -152,8 +152,8 @@ export default function JoinPage() {
 
         {phase === 'no-cloud' && (
           <>
-            <h1>Cloud sync required</h1>
-            <p>Family sharing needs cloud sync to be enabled. Contact the app administrator.</p>
+            <h1>Sharing is not turned on</h1>
+            <p>This build saves recipes on this device, so household invite links are not active yet.</p>
             <button className="primary-btn" onClick={() => navigate('/')}>Back</button>
           </>
         )}

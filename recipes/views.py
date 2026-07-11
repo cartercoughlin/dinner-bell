@@ -499,7 +499,8 @@ def api_parse_images(request):
                 except OSError:
                     pass
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        message = str(e)
+        return JsonResponse({'error': message, 'message': message}, status=500)
 
 
 def api_health(request):

@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { getFamilyInviteBaseUrl, getUserToken, isSupabaseEnabled } from '../lib/supabase';
+import { getFamilyInviteUrl, getUserToken, isSupabaseEnabled } from '../lib/supabase';
+import { useRecipes } from '../contexts/RecipeContext';
 
 interface Props {
   onClose: () => void;
 }
 
 export function FamilySharingSheet({ onClose }: Props) {
+  const { connectEmail, userEmail } = useRecipes();
   const token = getUserToken();
-  const inviteBaseUrl = getFamilyInviteBaseUrl();
-  const joinUrl = inviteBaseUrl ? `${inviteBaseUrl}/join/${encodeURIComponent(token)}` : '';
+  const joinUrl = getFamilyInviteUrl(token);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [email, setEmail] = useState(userEmail);
+  const [emailError, setEmailError] = useState('');
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
 
   const copy = async () => {
     if (!joinUrl) return;
@@ -27,6 +32,26 @@ export function FamilySharingSheet({ onClose }: Props) {
     }
     setCopyState('copied');
     setTimeout(() => setCopyState('idle'), 2000);
+  };
+
+  const saveEmail = async () => {
+    if (!email.trim() || email.trim() === userEmail) {
+      setIsEditingEmail(false);
+      setEmail(userEmail);
+      setEmailError('');
+      return;
+    }
+
+    setIsSavingEmail(true);
+    setEmailError('');
+    try {
+      await connectEmail(email);
+      setIsEditingEmail(false);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'Could not update email.');
+    } finally {
+      setIsSavingEmail(false);
+    }
   };
 
   return createPortal(
@@ -46,16 +71,70 @@ export function FamilySharingSheet({ onClose }: Props) {
 
         {!isSupabaseEnabled ? (
           <div className="sharing-body">
-            <p className="sharing-note">Cloud sync is not configured. Family sharing requires cloud sync to be enabled.</p>
-          </div>
-        ) : !joinUrl ? (
-          <div className="sharing-body">
-            <p className="sharing-note">Set VITE_PUBLIC_APP_URL to your deployed Dinner Bell URL before building the iOS app so invite links can open outside Capacitor.</p>
+            <p className="sharing-description">
+              Sharing is not turned on for this build yet. Your recipes are saved on this device.
+            </p>
+            <p className="sharing-note">
+              Once sharing is enabled, this is where you will get a private invite link for your household.
+            </p>
           </div>
         ) : (
           <div className="sharing-body">
+            <section className="sharing-account">
+              <div>
+                <h3>Account</h3>
+                {!isEditingEmail && <p>{userEmail}</p>}
+              </div>
+              {isEditingEmail ? (
+                <div className="sharing-email-editor">
+                  <input
+                    type="email"
+                    inputMode="email"
+                    value={email}
+                    onChange={event => {
+                      setEmail(event.target.value);
+                      setEmailError('');
+                    }}
+                    autoCapitalize="off"
+                    aria-label="Email"
+                  />
+                  <div className="sharing-email-actions">
+                    <button
+                      className="secondary-btn"
+                      type="button"
+                      onClick={() => {
+                        setEmail(userEmail);
+                        setEmailError('');
+                        setIsEditingEmail(false);
+                      }}
+                      disabled={isSavingEmail}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="primary-btn"
+                      type="button"
+                      onClick={saveEmail}
+                      disabled={!email.trim() || isSavingEmail}
+                    >
+                      {isSavingEmail ? 'Saving' : 'Save'}
+                    </button>
+                  </div>
+                  {emailError && <p className="form-error">{emailError}</p>}
+                </div>
+              ) : (
+                <button
+                  className="sharing-edit-email-btn"
+                  type="button"
+                  onClick={() => setIsEditingEmail(true)}
+                >
+                  Edit
+                </button>
+              )}
+            </section>
+
             <p className="sharing-description">
-              Scan the QR code or share the link below. Anyone who joins will see your recipes, calendar, and grocery list — and their unique recipes will be added to the shared collection.
+              Scan the QR code or share the app link below. Anyone who joins will see your recipes, calendar, and grocery list.
             </p>
 
             <div className="sharing-qr">
