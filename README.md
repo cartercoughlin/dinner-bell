@@ -148,7 +148,7 @@ This is the simplest first path for sending an installable build to testers.
 
 1. In Xcode, create an archive: `Product > Archive`.
 2. In Organizer, choose `Distribute App`.
-3. Choose `Ad Hoc` or `Development`.
+3. Choose `Ad Hoc`.
 4. Export an `.ipa`.
 5. In Firebase Console, open `DevOps & Engagement > App Distribution`.
 6. Select the Dinner Bell iOS app.
@@ -156,6 +156,8 @@ This is the simplest first path for sending an installable build to testers.
 8. Upload the `.ipa`.
 9. Add tester emails or a tester group.
 10. Add short release notes and distribute.
+
+Always use an Ad Hoc export for Firebase App Distribution. Development exports install but require Developer Mode on the tester's iPhone, which is not the experience we want for normal testers.
 
 Firebase App Distribution link:
 
